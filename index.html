@@ -7,7 +7,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* Night Mode Default */
             --bg: #1a1a1c;
             --text: #e0e0e0;
             --accent: #ffffff;
@@ -15,6 +14,10 @@
             --particle-color: 255, 255, 255;
             --panel-bg: #2a2a2e;
             --input-bg: #111;
+            --success: #00d26a;
+            --danger: #ff4757;
+            --warning: #ffa502;
+            --info: #00d2ff;
         }
 
         [data-theme="light"] {
@@ -49,7 +52,6 @@
             z-index: -1;
         }
 
-        /* Live Broadcast Area */
         #broadcast-container {
             position: fixed;
             top: 20px;
@@ -72,6 +74,11 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(128, 128, 128, 0.1);
             color: var(--text);
+        }
+
+        .broadcast-msg.priority {
+            background: linear-gradient(135deg, rgba(255,71,87,0.3), rgba(255,165,2,0.3));
+            border-color: var(--danger);
         }
 
         @keyframes fadeInOut {
@@ -115,7 +122,7 @@
             opacity: 0.5;
         }
 
-        /* Draggable Admin Panel */
+        /* Enhanced Admin Panel */
         #admin-panel {
             display: none;
             position: fixed;
@@ -124,33 +131,106 @@
             background: var(--panel-bg);
             color: var(--text);
             padding: 0;
-            width: 280px;
+            width: 320px;
+            max-height: 80vh;
             border-radius: 12px;
             z-index: 100;
             text-transform: none;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             border: 1px solid rgba(128,128,128,0.2);
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
 
         #admin-header {
-            padding: 12px;
-            background: rgba(0,0,0,0.1);
+            padding: 12px 15px;
+            background: rgba(0,0,0,0.15);
             cursor: move;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 900;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid rgba(128,128,128,0.2);
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        #admin-user {
+            font-size: 0.65rem;
+            opacity: 0.6;
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Tabs */
+        .admin-tabs {
+            display: flex;
+            background: rgba(0,0,0,0.1);
+            border-bottom: 1px solid rgba(128,128,128,0.2);
+        }
+
+        .admin-tab {
+            flex: 1;
+            padding: 10px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-align: center;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            opacity: 0.5;
+            transition: 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .admin-tab:hover { opacity: 0.8; }
+        .admin-tab.active { 
+            opacity: 1; 
+            border-bottom-color: var(--info);
+            background: rgba(0,210,255,0.1);
         }
 
         #admin-content {
-            padding: 20px;
+            padding: 15px;
+            overflow-y: auto;
+            flex: 1;
         }
 
-        #admin-panel h3 { margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 900; }
+        .admin-section {
+            display: none;
+        }
 
-        input {
+        .admin-section.active {
+            display: block;
+        }
+
+        #admin-panel h3 { 
+            margin: 0 0 10px 0; 
+            font-size: 0.8rem; 
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #admin-panel h3::before {
+            content: '';
+            width: 3px;
+            height: 12px;
+            background: var(--info);
+            border-radius: 2px;
+        }
+
+        input, select, textarea {
             width: 100%;
             padding: 10px;
             margin: 5px 0;
@@ -161,9 +241,35 @@
             font-size: 0.8rem;
             box-sizing: border-box;
             border-radius: 6px;
+            transition: 0.2s;
         }
 
-        .admin-row { display: flex; gap: 5px; margin-top: 5px; }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--info);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+
+        .input-label {
+            font-size: 0.65rem;
+            opacity: 0.6;
+            margin-bottom: 3px;
+            display: block;
+        }
+
+        .admin-row { 
+            display: flex; 
+            gap: 5px; 
+            margin-top: 10px; 
+        }
 
         button {
             cursor: pointer;
@@ -171,12 +277,221 @@
             text-transform: lowercase;
             transition: 0.2s;
             border-radius: 6px;
+            font-size: 0.75rem;
         }
 
-        .btn-save { background: var(--text); color: var(--bg); border: none; font-weight: 700; padding: 10px; flex: 1; }
-        .btn-broadcast { background: #00d2ff; color: #000; border: none; font-weight: 700; padding: 10px; flex: 1; }
-        .btn-theme { background: transparent; color: var(--text); border: 1px solid var(--text); font-size: 0.7rem; padding: 4px 8px; }
-        
+        button:hover { transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
+        button:disabled { 
+            opacity: 0.5; 
+            cursor: not-allowed; 
+            transform: none;
+        }
+
+        .btn-primary { 
+            background: var(--info); 
+            color: #000; 
+            border: none; 
+            font-weight: 700; 
+            padding: 10px 15px; 
+            flex: 1; 
+        }
+
+        .btn-success { 
+            background: var(--success); 
+            color: #000; 
+            border: none; 
+            font-weight: 700; 
+            padding: 10px 15px; 
+            flex: 1; 
+        }
+
+        .btn-danger { 
+            background: var(--danger); 
+            color: #fff; 
+            border: none; 
+            font-weight: 700; 
+            padding: 10px 15px; 
+            flex: 1; 
+        }
+
+        .btn-warning { 
+            background: var(--warning); 
+            color: #000; 
+            border: none; 
+            font-weight: 700; 
+            padding: 10px 15px; 
+            flex: 1; 
+        }
+
+        .btn-secondary { 
+            background: transparent; 
+            color: var(--text); 
+            border: 1px solid rgba(128,128,128,0.3); 
+            font-weight: 700; 
+            padding: 10px 15px; 
+            flex: 1; 
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 0.65rem;
+        }
+
+        .btn-icon {
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: 1px solid rgba(128,128,128,0.3);
+            color: var(--text);
+            font-size: 0.8rem;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .quick-btn {
+            padding: 12px 8px;
+            font-size: 0.7rem;
+            background: rgba(128,128,128,0.1);
+            border: 1px solid rgba(128,128,128,0.2);
+            color: var(--text);
+            text-align: center;
+        }
+
+        .quick-btn:hover {
+            background: rgba(128,128,128,0.2);
+        }
+
+        /* Status Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            z-index: 9999;
+            opacity: 0;
+            transition: 0.3s;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success { background: var(--success); color: #000; }
+        .toast.error { background: var(--danger); color: #fff; }
+        .toast.info { background: var(--info); color: #000; }
+
+        /* Confirm Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 9998;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--panel-bg);
+            padding: 25px;
+            border-radius: 12px;
+            max-width: 350px;
+            text-align: center;
+        }
+
+        .modal h4 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+        }
+
+        .modal p {
+            margin: 0 0 20px 0;
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .stat-card {
+            background: rgba(128,128,128,0.1);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 900;
+        }
+
+        .stat-label {
+            font-size: 0.65rem;
+            opacity: 0.6;
+        }
+
+        /* Broadcast History */
+        .broadcast-history {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .broadcast-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: rgba(128,128,128,0.1);
+            border-radius: 6px;
+            margin-bottom: 5px;
+            font-size: 0.75rem;
+        }
+
+        .broadcast-item-text {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .broadcast-item-time {
+            font-size: 0.6rem;
+            opacity: 0.5;
+            margin-left: 10px;
+        }
+
+        hr {
+            border: 0;
+            border-top: 1px solid rgba(128,128,128,0.2);
+            margin: 15px 0;
+        }
+
         .btn-login { 
             background: transparent; 
             color: #666; 
@@ -184,6 +499,69 @@
             border: none; 
             font-size: 0.7rem;
             letter-spacing: 1px;
+        }
+
+        /* Toggle Switch */
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+        }
+
+        .toggle-label {
+            font-size: 0.75rem;
+        }
+
+        .toggle {
+            width: 40px;
+            height: 22px;
+            background: rgba(128,128,128,0.3);
+            border-radius: 11px;
+            position: relative;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .toggle.active {
+            background: var(--success);
+        }
+
+        .toggle::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: 0.2s;
+        }
+
+        .toggle.active::after {
+            left: 20px;
+        }
+
+        /* Firestore Rules Info */
+        .rules-info {
+            background: rgba(255,165,2,0.1);
+            border: 1px solid var(--warning);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 0.7rem;
+            margin-top: 15px;
+        }
+
+        .rules-info code {
+            display: block;
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            white-space: pre-wrap;
+            word-break: break-all;
         }
     </style>
 </head>
@@ -206,27 +584,198 @@
 
     <div id="admin-panel">
         <div id="admin-header">
-            <span>admin dashboard (drag me)</span>
-            <button class="btn-theme" onclick="window.toggleTheme()">theme</button>
+            <span>⚡ admin dashboard</span>
+            <div class="header-controls">
+                <span id="admin-user"></span>
+                <button class="btn-icon" onclick="window.toggleTheme()" title="Toggle Theme">◐</button>
+                <button class="btn-icon" onclick="window.logout()" title="Logout">⏻</button>
+            </div>
         </div>
+
+        <!-- Tabs -->
+        <div class="admin-tabs">
+            <button class="admin-tab active" data-tab="timer">⏱ Timer</button>
+            <button class="admin-tab" data-tab="broadcast">📢 Broadcast</button>
+            <button class="admin-tab" data-tab="settings">⚙ Settings</button>
+        </div>
+
         <div id="admin-content">
-            <h3>event config</h3>
-            <input type="text" id="name-input" placeholder="event name">
-            <input type="datetime-local" id="date-input">
-            <button class="btn-save" onclick="window.updateTimer()">update site</button>
-            
-            <hr style="border: 0; border-top: 1px solid rgba(128,128,128,0.2); margin: 15px 0;">
-            
-            <h3>live broadcast</h3>
-            <input type="text" id="broadcast-input" placeholder="spam a message...">
-            <button class="btn-broadcast" onclick="window.sendBroadcast()">send live</button>
+            <!-- Timer Section -->
+            <div class="admin-section active" id="section-timer">
+                <h3>event configuration</h3>
+                
+                <div class="input-group">
+                    <span class="input-label">Event Name</span>
+                    <input type="text" id="name-input" placeholder="enter event name">
+                </div>
+                
+                <div class="input-group">
+                    <span class="input-label">Target Date & Time</span>
+                    <input type="datetime-local" id="date-input">
+                </div>
+
+                <div class="admin-row">
+                    <button class="btn-success" onclick="window.updateTimer()">💾 save changes</button>
+                </div>
+
+                <hr>
+
+                <h3>quick actions</h3>
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="window.setQuickTime(1)">+1 hour</button>
+                    <button class="quick-btn" onclick="window.setQuickTime(24)">+1 day</button>
+                    <button class="quick-btn" onclick="window.setQuickTime(168)">+1 week</button>
+                    <button class="quick-btn" onclick="window.setQuickTime(720)">+1 month</button>
+                </div>
+
+                <div class="admin-row" style="margin-top: 15px;">
+                    <button class="btn-warning" onclick="window.pauseTimer()">⏸ pause</button>
+                    <button class="btn-secondary" onclick="window.resumeTimer()">▶ resume</button>
+                </div>
+
+                <div class="admin-row">
+                    <button class="btn-danger" onclick="window.confirmAction('reset')">🔄 reset timer</button>
+                </div>
+            </div>
+
+            <!-- Broadcast Section -->
+            <div class="admin-section" id="section-broadcast">
+                <h3>send broadcast</h3>
+                
+                <div class="input-group">
+                    <span class="input-label">Message</span>
+                    <input type="text" id="broadcast-input" placeholder="type your message...">
+                </div>
+
+                <div class="toggle-row">
+                    <span class="toggle-label">Priority (highlighted)</span>
+                    <div class="toggle" id="priority-toggle" onclick="this.classList.toggle('active')"></div>
+                </div>
+
+                <div class="admin-row">
+                    <button class="btn-primary" onclick="window.sendBroadcast()">📤 send live</button>
+                </div>
+
+                <hr>
+
+                <h3>preset messages</h3>
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="window.quickBroadcast('event starting soon!')">starting soon</button>
+                    <button class="quick-btn" onclick="window.quickBroadcast('get ready!')">get ready</button>
+                    <button class="quick-btn" onclick="window.quickBroadcast('we are live!')">we are live</button>
+                    <button class="quick-btn" onclick="window.quickBroadcast('stay tuned...')">stay tuned</button>
+                </div>
+
+                <hr>
+
+                <h3>recent broadcasts</h3>
+                <div class="broadcast-history" id="broadcast-history">
+                    <p style="font-size: 0.7rem; opacity: 0.5; text-align: center;">no recent broadcasts</p>
+                </div>
+
+                <div class="admin-row">
+                    <button class="btn-danger btn-small" onclick="window.confirmAction('clearBroadcasts')">🗑 clear all</button>
+                </div>
+            </div>
+
+            <!-- Settings Section -->
+            <div class="admin-section" id="section-settings">
+                <h3>display settings</h3>
+
+                <div class="toggle-row">
+                    <span class="toggle-label">Show Particles</span>
+                    <div class="toggle active" id="particles-toggle" onclick="window.toggleParticles()"></div>
+                </div>
+
+                <div class="toggle-row">
+                    <span class="toggle-label">Show Seconds</span>
+                    <div class="toggle active" id="seconds-toggle" onclick="window.toggleSeconds()"></div>
+                </div>
+
+                <div class="input-group" style="margin-top: 15px;">
+                    <span class="input-label">Particle Count</span>
+                    <input type="range" id="particle-count" min="10" max="100" value="45" onchange="window.updateParticles(this.value)">
+                </div>
+
+                <hr>
+
+                <h3>admin management</h3>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-broadcasts">0</div>
+                        <div class="stat-label">broadcasts today</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-viewers">-</div>
+                        <div class="stat-label">active viewers</div>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <span class="input-label">Add Admin Email</span>
+                    <input type="email" id="new-admin-input" placeholder="email@example.com">
+                </div>
+
+                <div class="admin-row">
+                    <button class="btn-secondary" onclick="window.addAdmin()">+ add admin</button>
+                </div>
+
+                <div id="admin-list" style="margin-top: 15px; font-size: 0.7rem;">
+                    <!-- Admin list populated here -->
+                </div>
+
+                <hr>
+
+                <div class="rules-info">
+                    <strong>⚠️ Firestore Rules Required:</strong>
+                    <code>rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read for everyone
+    match /config/{doc} {
+      allow read: if true;
+      allow write: if request.auth != null 
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+    
+    match /broadcasts/{doc} {
+      allow read: if true;
+      allow write: if request.auth != null 
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+    
+    match /admins/{email} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null 
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+  }
+}</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Confirm Modal -->
+    <div class="modal-overlay" id="confirm-modal">
+        <div class="modal">
+            <h4 id="modal-title">Confirm Action</h4>
+            <p id="modal-message">Are you sure you want to do this?</p>
+            <div class="admin-row">
+                <button class="btn-secondary" onclick="window.closeModal()">cancel</button>
+                <button class="btn-danger" id="modal-confirm">confirm</button>
+            </div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy, limit, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBU40uJSFMhEBeNDlNclLfCEp0cxL5bND4",
@@ -243,87 +792,391 @@
         const provider = new GoogleAuthProvider();
 
         let targetTime = null;
+        let isPaused = false;
+        let pausedAt = null;
+        let currentUser = null;
+        let isAdmin = false;
         const pageLoadTime = Date.now();
 
-        // 1. Theme Logic
+        // ============ UTILITY FUNCTIONS ============
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        window.confirmAction = (action) => {
+            const modal = document.getElementById('confirm-modal');
+            const title = document.getElementById('modal-title');
+            const message = document.getElementById('modal-message');
+            const confirmBtn = document.getElementById('modal-confirm');
+
+            const actions = {
+                reset: { title: 'Reset Timer?', msg: 'This will clear the current timer settings.' },
+                clearBroadcasts: { title: 'Clear All Broadcasts?', msg: 'This will delete all broadcast history.' }
+            };
+
+            title.textContent = actions[action].title;
+            message.textContent = actions[action].msg;
+            confirmBtn.onclick = () => { window[action](); window.closeModal(); };
+            modal.classList.add('show');
+        };
+
+        window.closeModal = () => {
+            document.getElementById('confirm-modal').classList.remove('show');
+        };
+
+        // ============ THEME ============
+
         window.toggleTheme = () => {
             const body = document.body;
             const current = body.getAttribute('data-theme');
             body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+            showToast(`switched to ${current === 'dark' ? 'light' : 'dark'} mode`);
         };
 
-        // 2. Sync Timer Data
+        // ============ TABS ============
+
+        document.querySelectorAll('.admin-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(`section-${tab.dataset.tab}`).classList.add('active');
+            });
+        });
+
+        // ============ SYNC TIMER DATA ============
+
         onSnapshot(doc(db, "config", "timer"), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
                 targetTime = new Date(data.targetTime).getTime();
+                isPaused = data.isPaused || false;
+                pausedAt = data.pausedAt ? new Date(data.pausedAt).getTime() : null;
+                
                 document.getElementById('event-name').innerText = (data.eventName || "event").toLowerCase();
+                document.getElementById('name-input').value = data.eventName || '';
+                
+                // Convert to datetime-local format
+                if (data.targetTime) {
+                    const d = new Date(data.targetTime);
+                    document.getElementById('date-input').value = d.toISOString().slice(0, 16);
+                }
             }
         });
 
-        // 3. Live Broadcasts (Fixed Logic)
+        // ============ LIVE BROADCASTS ============
+
         const broadcastCol = collection(db, "broadcasts");
+        const recentBroadcastsQuery = query(broadcastCol, orderBy("sentAt", "desc"), limit(20));
+        let broadcastHistory = [];
+
         onSnapshot(broadcastCol, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added") {
                     const data = change.doc.data();
-                    // Using a timestamp check to ensure it's "live"
                     const msgTime = data.sentAt ? new Date(data.sentAt).getTime() : 0;
-                    if (msgTime > pageLoadTime - 2000) { // 2s buffer for clock sync
-                        showBroadcastMessage(data.text);
+                    if (msgTime > pageLoadTime - 2000) {
+                        showBroadcastMessage(data.text, data.priority);
                     }
                 }
             });
         });
 
-        function showBroadcastMessage(text) {
+        // Load broadcast history
+        async function loadBroadcastHistory() {
+            try {
+                const snapshot = await getDocs(query(broadcastCol, orderBy("sentAt", "desc"), limit(10)));
+                const container = document.getElementById('broadcast-history');
+                
+                if (snapshot.empty) {
+                    container.innerHTML = '<p style="font-size: 0.7rem; opacity: 0.5; text-align: center;">no recent broadcasts</p>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                let todayCount = 0;
+                const today = new Date().toDateString();
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const time = new Date(data.sentAt);
+                    
+                    if (time.toDateString() === today) todayCount++;
+
+                    const item = document.createElement('div');
+                    item.className = 'broadcast-item';
+                    item.innerHTML = `
+                        <span class="broadcast-item-text">${data.text}</span>
+                        <span class="broadcast-item-time">${time.toLocaleTimeString()}</span>
+                    `;
+                    container.appendChild(item);
+                });
+
+                document.getElementById('stat-broadcasts').textContent = todayCount;
+            } catch (e) {
+                console.error("Failed to load history:", e);
+            }
+        }
+
+        function showBroadcastMessage(text, priority = false) {
             const container = document.getElementById('broadcast-container');
             const msg = document.createElement('div');
-            msg.className = 'broadcast-msg';
+            msg.className = `broadcast-msg${priority ? ' priority' : ''}`;
             msg.innerText = text.toLowerCase();
             container.appendChild(msg);
             setTimeout(() => msg.remove(), 4000);
         }
 
-        // 4. Admin & Auth
+        // ============ ADMIN AUTH ============
+
+        async function checkAdmin(email) {
+            try {
+                const adminDoc = await getDocs(query(collection(db, "admins"), where("email", "==", email)));
+                return !adminDoc.empty;
+            } catch (e) {
+                // Fallback to hardcoded admin for initial setup
+                return email === "mactane12@gmail.com";
+            }
+        }
+
         window.login = () => signInWithPopup(auth, provider);
 
-        onAuthStateChanged(auth, (user) => {
-            if (user && user.email === "mactane12@gmail.com") {
-                document.getElementById('admin-panel').style.display = "block";
-                document.getElementById('login-btn').style.display = "none";
+        window.logout = async () => {
+            await signOut(auth);
+            document.getElementById('admin-panel').style.display = "none";
+            document.getElementById('login-btn').style.display = "block";
+            showToast("logged out successfully");
+        };
+
+        onAuthStateChanged(auth, async (user) => {
+            currentUser = user;
+            if (user) {
+                isAdmin = await checkAdmin(user.email);
+                if (isAdmin) {
+                    document.getElementById('admin-panel').style.display = "flex";
+                    document.getElementById('login-btn').style.display = "none";
+                    document.getElementById('admin-user').textContent = user.email.split('@')[0];
+                    loadBroadcastHistory();
+                    loadAdminList();
+                } else {
+                    showToast("unauthorized access", "error");
+                    await signOut(auth);
+                }
             }
         });
+
+        // ============ TIMER CONTROLS ============
 
         window.updateTimer = async () => {
             const dateVal = document.getElementById('date-input').value;
             const nameVal = document.getElementById('name-input').value;
-            if (!dateVal || !nameVal) return;
-            await setDoc(doc(db, "config", "timer"), { targetTime: dateVal, eventName: nameVal.toLowerCase() });
+            if (!dateVal || !nameVal) {
+                showToast("please fill all fields", "error");
+                return;
+            }
+            try {
+                await setDoc(doc(db, "config", "timer"), { 
+                    targetTime: dateVal, 
+                    eventName: nameVal.toLowerCase(),
+                    isPaused: false,
+                    updatedAt: new Date().toISOString(),
+                    updatedBy: currentUser?.email
+                });
+                showToast("timer updated!", "success");
+            } catch (e) {
+                showToast("update failed: " + e.message, "error");
+            }
         };
+
+        window.setQuickTime = async (hours) => {
+            const newTime = new Date(Date.now() + hours * 60 * 60 * 1000);
+            document.getElementById('date-input').value = newTime.toISOString().slice(0, 16);
+            showToast(`set to +${hours} hours`);
+        };
+
+        window.pauseTimer = async () => {
+            try {
+                await setDoc(doc(db, "config", "timer"), { 
+                    isPaused: true,
+                    pausedAt: new Date().toISOString()
+                }, { merge: true });
+                showToast("timer paused", "warning");
+            } catch (e) {
+                showToast("failed to pause: " + e.message, "error");
+            }
+        };
+
+        window.resumeTimer = async () => {
+            if (!pausedAt || !targetTime) return;
+            try {
+                const pauseDuration = Date.now() - pausedAt;
+                const newTarget = new Date(targetTime + pauseDuration);
+                await setDoc(doc(db, "config", "timer"), { 
+                    targetTime: newTarget.toISOString(),
+                    isPaused: false,
+                    pausedAt: null
+                }, { merge: true });
+                showToast("timer resumed", "success");
+            } catch (e) {
+                showToast("failed to resume: " + e.message, "error");
+            }
+        };
+
+        window.reset = async () => {
+            try {
+                await setDoc(doc(db, "config", "timer"), { 
+                    targetTime: new Date(Date.now() + 86400000).toISOString(),
+                    eventName: "event",
+                    isPaused: false,
+                    pausedAt: null
+                });
+                showToast("timer reset!", "success");
+            } catch (e) {
+                showToast("reset failed", "error");
+            }
+        };
+
+        // ============ BROADCAST CONTROLS ============
 
         window.sendBroadcast = async () => {
             const input = document.getElementById('broadcast-input');
-            const text = input.value;
-            if (!text) return;
+            const text = input.value.trim();
+            const priority = document.getElementById('priority-toggle').classList.contains('active');
+            
+            if (!text) {
+                showToast("enter a message", "error");
+                return;
+            }
+            
             input.value = "";
             try {
                 await addDoc(collection(db, "broadcasts"), {
                     text: text,
-                    sentAt: new Date().toISOString() // Use ISO string for reliable live filtering
+                    priority: priority,
+                    sentAt: new Date().toISOString(),
+                    sentBy: currentUser?.email
                 });
+                showToast("broadcast sent!", "success");
+                document.getElementById('priority-toggle').classList.remove('active');
+                loadBroadcastHistory();
             } catch (err) {
-                console.error("Broadcast failed:", err);
+                showToast("broadcast failed: " + err.message, "error");
             }
         };
 
-        // 5. Draggable Logic
+        window.quickBroadcast = async (message) => {
+            document.getElementById('broadcast-input').value = message;
+            window.sendBroadcast();
+        };
+
+        window.clearBroadcasts = async () => {
+            try {
+                const snapshot = await getDocs(collection(db, "broadcasts"));
+                const batch = writeBatch(db);
+                snapshot.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+                showToast("all broadcasts cleared", "success");
+                loadBroadcastHistory();
+            } catch (e) {
+                showToast("failed to clear: " + e.message, "error");
+            }
+        };
+
+        // ============ SETTINGS ============
+
+        let particlesEnabled = true;
+        let particles = [];
+
+        window.toggleParticles = () => {
+            particlesEnabled = !particlesEnabled;
+            document.getElementById('particles-toggle').classList.toggle('active');
+            showToast(`particles ${particlesEnabled ? 'enabled' : 'disabled'}`);
+        };
+
+        window.toggleSeconds = () => {
+            const secondsUnit = document.querySelector('.unit-group:last-child');
+            const toggle = document.getElementById('seconds-toggle');
+            toggle.classList.toggle('active');
+            secondsUnit.style.display = toggle.classList.contains('active') ? 'flex' : 'none';
+        };
+
+        window.updateParticles = (count) => {
+            const diff = count - particles.length;
+            if (diff > 0) {
+                for (let i = 0; i < diff; i++) particles.push(new Particle());
+            } else {
+                particles = particles.slice(0, count);
+            }
+        };
+
+        // ============ ADMIN MANAGEMENT ============
+
+        async function loadAdminList() {
+            try {
+                const snapshot = await getDocs(collection(db, "admins"));
+                const container = document.getElementById('admin-list');
+                container.innerHTML = '<strong style="font-size: 0.7rem; opacity: 0.6;">current admins:</strong>';
+                
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const item = document.createElement('div');
+                    item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 5px 0;';
+                    item.innerHTML = `
+                        <span>${data.email}</span>
+                        ${data.email !== currentUser?.email ? 
+                            `<button class="btn-small btn-danger" onclick="window.removeAdmin('${doc.id}')">×</button>` : 
+                            '<span style="opacity: 0.5; font-size: 0.6rem;">(you)</span>'}
+                    `;
+                    container.appendChild(item);
+                });
+            } catch (e) {
+                console.error("Failed to load admins:", e);
+            }
+        }
+
+        window.addAdmin = async () => {
+            const email = document.getElementById('new-admin-input').value.trim();
+            if (!email || !email.includes('@')) {
+                showToast("enter valid email", "error");
+                return;
+            }
+            try {
+                await setDoc(doc(db, "admins", email), { 
+                    email: email,
+                    addedBy: currentUser?.email,
+                    addedAt: new Date().toISOString()
+                });
+                document.getElementById('new-admin-input').value = '';
+                showToast("admin added!", "success");
+                loadAdminList();
+            } catch (e) {
+                showToast("failed to add admin: " + e.message, "error");
+            }
+        };
+
+        window.removeAdmin = async (docId) => {
+            try {
+                await deleteDoc(doc(db, "admins", docId));
+                showToast("admin removed", "success");
+                loadAdminList();
+            } catch (e) {
+                showToast("failed to remove", "error");
+            }
+        };
+
+        // ============ DRAGGABLE PANEL ============
+
         const panel = document.getElementById("admin-panel");
         const header = document.getElementById("admin-header");
         let isDragging = false;
         let offset = { x: 0, y: 0 };
 
         header.onmousedown = (e) => {
+            if (e.target.tagName === 'BUTTON') return;
             isDragging = true;
             offset.x = e.clientX - panel.offsetLeft;
             offset.y = e.clientY - panel.offsetTop;
@@ -343,11 +1196,20 @@
             header.style.cursor = "move";
         };
 
-        // 6. Timer Logic
+        // ============ TIMER DISPLAY ============
+
         setInterval(() => {
-            if (!targetTime) return;
+            if (!targetTime || isPaused) {
+                if (isPaused) document.getElementById('event-name').style.opacity = '0.5';
+                return;
+            }
+            document.getElementById('event-name').style.opacity = '1';
+            
             const diff = targetTime - new Date().getTime();
-            if (diff <= 0) { document.getElementById('event-name').innerText = "live"; return; }
+            if (diff <= 0) { 
+                document.getElementById('event-name').innerText = "live now!"; 
+                return; 
+            }
 
             const _month = 1000 * 60 * 60 * 24 * 30.44;
             const _hour = 1000 * 60 * 60;
@@ -360,12 +1222,17 @@
             document.getElementById('seconds').innerText = Math.floor((diff % _min) / _sec).toString().padStart(2, '0');
         }, 1000);
 
-        // 7. Rotating Particles
+        // ============ PARTICLES ============
+
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
-        let particles = [];
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.onresize = resize; resize();
+        
+        function resize() { 
+            canvas.width = window.innerWidth; 
+            canvas.height = window.innerHeight; 
+        }
+        window.onresize = resize; 
+        resize();
 
         class Particle {
             constructor() {
@@ -391,13 +1258,29 @@
                 ctx.restore();
             }
         }
+
         for (let i = 0; i < 45; i++) particles.push(new Particle());
+
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            particles.forEach(p => { p.update(); p.draw(); });
+            if (particlesEnabled) {
+                particles.forEach(p => { p.update(); p.draw(); });
+            }
             requestAnimationFrame(animate);
         }
         animate();
+
+        // Initialize admin on first load (run once to create first admin)
+        async function initFirstAdmin() {
+            const adminsSnap = await getDocs(collection(db, "admins"));
+            if (adminsSnap.empty && currentUser?.email === "mactane12@gmail.com") {
+                await setDoc(doc(db, "admins", "mactane12@gmail.com"), {
+                    email: "mactane12@gmail.com",
+                    addedAt: new Date().toISOString(),
+                    isOwner: true
+                });
+            }
+        }
     </script>
 </body>
 </html>
