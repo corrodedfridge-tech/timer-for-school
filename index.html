@@ -3,169 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Event Countdown</title>
+    <title>scul countdown</title>
     <style>
         :root {
-            --primary: #00f2ff;
-            --bg: #0a0a0c;
-            --card: #16161a;
-            --text: #ffffff;
+            --bg: #ffffff;
+            --text: #000000;
+            --panel: rgba(255, 255, 255, 0.9);
         }
 
         body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            font-family: 'Arial Black', Gadget, sans-serif;
             background-color: var(--bg);
             color: var(--text);
+            margin: 0;
+            overflow: hidden; /* Keeps particles contained */
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            margin: 0;
-            text-align: center;
         }
 
-        /* Subtle Glow Background */
-        body::before {
-            content: "";
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 400px; height: 400px;
-            background: var(--primary);
-            filter: blur(180px);
-            opacity: 0.1;
+        /* Particle Canvas */
+        #particle-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             z-index: -1;
         }
 
+        /* Text Styling */
         h1 {
-            font-size: 1rem;
-            letter-spacing: 0.3rem;
-            color: #666;
+            font-size: 2.5rem;
             text-transform: uppercase;
+            font-weight: 900;
             margin-bottom: 2rem;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+            text-align: center;
         }
 
         .timer-container {
             display: flex;
-            gap: 1.5rem;
-            flex-wrap: wrap;
-            justify-content: center;
+            align-items: baseline;
+            gap: 20px;
         }
 
+        /* Boxes for Months, Hours, Minutes */
         .time-box {
-            background: var(--card);
-            padding: 2rem;
-            border-radius: 24px;
-            min-width: 130px;
-            border: 1px solid #222;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            background: #000;
+            color: #fff;
+            padding: 20px 30px;
+            border-radius: 0px; /* Square aesthetic */
+            text-align: center;
+            box-shadow: 5px 5px 0px rgba(0,0,0,0.2);
         }
 
         .time-box span {
             display: block;
-            font-size: 4rem;
-            font-weight: 800;
-            color: var(--primary);
-            text-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+            font-size: 3.5rem;
+            font-weight: 900;
         }
 
         .label {
-            font-size: 0.7rem;
-            color: #555;
+            font-size: 0.8rem;
             text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-top: 8px;
+            margin-top: 5px;
         }
 
-        /* Admin Controls */
+        /* Seconds Styling (No Box, Black Text) */
+        .seconds-container {
+            text-align: center;
+            margin-left: 10px;
+        }
+
+        #seconds {
+            font-size: 5rem;
+            font-weight: 900;
+            color: #000;
+            text-shadow: 3px 3px 0px rgba(0,0,0,0.1);
+        }
+
+        /* Admin UI */
         #admin-panel {
             display: none;
-            background: var(--card);
-            padding: 2rem;
-            border-radius: 24px;
-            border: 1px solid var(--primary);
-            margin-top: 3rem;
-            max-width: 400px;
-            width: 90%;
+            position: fixed;
+            bottom: 20px;
+            background: #000;
+            color: #fff;
+            padding: 20px;
+            width: 300px;
+            z-index: 100;
+            box-shadow: 10px 10px 0px rgba(0,0,0,0.2);
         }
 
-        input[type="datetime-local"] {
-            background: #000;
-            border: 1px solid #333;
-            color: white;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 1rem;
+        input {
             width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: none;
             box-sizing: border-box;
-            margin-bottom: 1rem;
+            font-weight: bold;
         }
 
         button {
             cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .btn-save {
-            background: var(--primary);
-            color: #000;
+            font-weight: 900;
+            text-transform: uppercase;
             border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            width: 100%;
+            padding: 10px;
         }
 
-        .btn-login {
-            background: transparent;
-            color: #444;
-            border: 1px solid #333;
-            padding: 8px 16px;
-            border-radius: 8px;
-            margin-top: 4rem;
-        }
-
-        .btn-login:hover { color: white; border-color: white; }
-
-        #status { margin-top: 1rem; font-size: 0.8rem; color: #333; }
+        .btn-save { background: #fff; color: #000; width: 100%; margin-top: 10px; }
+        .btn-login { background: #000; color: #fff; margin-top: 20px; border: 2px solid #000; }
+        
+        #status { font-family: monospace; font-size: 0.7rem; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <h1>Countdown to Event</h1>
+    <canvas id="particle-canvas"></canvas>
 
-    <div class="timer-container" id="display">
-        <div class="time-box">
-            <span id="months">0</span>
-            <div class="label">Months</div>
-        </div>
-        <div class="time-box">
-            <span id="hours">0</span>
-            <div class="label">Hours</div>
-        </div>
-        <div class="time-box">
-            <span id="minutes">0</span>
-            <div class="label">Minutes</div>
-        </div>
-    </div>
+    <h1 id="event-name">LOADING...</h1>
 
-    <div id="admin-panel">
-        <h2 style="margin-top:0; color:var(--primary); font-size: 1.2rem;">Special Powers Active</h2>
-        <input type="datetime-local" id="date-input">
-        <button class="btn-save" onclick="window.updateTimer()">Update Global Timer</button>
+    <div class="timer-container">
+        <div class="time-box"><span id="months">00</span><div class="label">Months</div></div>
+        <div class="time-box"><span id="hours">00</span><div class="label">Hours</div></div>
+        <div class="time-box"><span id="minutes">00</span><div class="label">Minutes</div></div>
+        
+        <div class="seconds-container">
+            <span id="seconds">00</span>
+            <div class="label" style="color:#000">Seconds</div>
+        </div>
     </div>
 
     <button id="login-btn" class="btn-login" onclick="window.login()">Admin Access</button>
-    <div id="status">Public View</div>
+
+    <div id="admin-panel">
+        <div style="font-size: 1.2rem; margin-bottom: 10px;">ADMIN TOOLS</div>
+        <label>Event Name:</label>
+        <input type="text" id="name-input" placeholder="Enter Event Name">
+        <label>Target Date:</label>
+        <input type="datetime-local" id="date-input">
+        <button class="btn-save" onclick="window.updateTimer()">Update Global Site</button>
+        <div id="status">Verified</div>
+    </div>
 
     <script type="module">
-        // Import Firebase modules from CDN
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // Your exact Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBU40uJSFMhEBeNDlNclLfCEp0cxL5bND4",
             authDomain: "countdowns-208d2.firebaseapp.com",
@@ -175,7 +162,6 @@
             appId: "1:130020979616:web:bc01b82ffd7eb400e1aac5"
         };
 
-        // Initialize
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
@@ -183,64 +169,97 @@
 
         let targetTime = null;
 
-        // 1. Sync timer from Firestore
-        onSnapshot(doc(db, "config", "timer"), (snapshot) => {
-            if (snapshot.exists()) {
-                targetTime = new Date(snapshot.data().targetTime).getTime();
+        // Sync Data (Name and Time)
+        onSnapshot(doc(db, "config", "timer"), (snap) => {
+            if (snap.exists()) {
+                const data = snap.data();
+                targetTime = new Date(data.targetTime).getTime();
+                document.getElementById('event-name').innerText = data.eventName || "COUNTDOWN";
             }
         });
 
-        // 2. Authentication logic
         window.login = () => signInWithPopup(auth, provider);
 
         onAuthStateChanged(auth, (user) => {
-            const adminPanel = document.getElementById('admin-panel');
-            const loginBtn = document.getElementById('login-btn');
-            const status = document.getElementById('status');
-
-            if (user) {
-                status.innerText = `Verified: ${user.email}`;
-                loginBtn.style.display = "none";
-                // Only show panel to your account
-                if (user.email === "mactane12@gmail.com") {
-                    adminPanel.style.display = "block";
-                }
+            if (user && user.email === "mactane12@gmail.com") {
+                document.getElementById('admin-panel').style.display = "block";
+                document.getElementById('login-btn').style.display = "none";
             }
         });
 
-        // 3. Admin Update logic
         window.updateTimer = async () => {
-            const dateValue = document.getElementById('date-input').value;
-            if (!dateValue) return alert("Select a date!");
+            const dateVal = document.getElementById('date-input').value;
+            const nameVal = document.getElementById('name-input').value;
+            if (!dateVal || !nameVal) return alert("Fill out both fields");
             
             try {
-                await setDoc(doc(db, "config", "timer"), { targetTime: dateValue });
-                alert("Time updated for all users.");
-            } catch (err) {
-                alert("Permission Denied: Only mactane12@gmail.com can do this.");
-            }
+                await setDoc(doc(db, "config", "timer"), { 
+                    targetTime: dateVal,
+                    eventName: nameVal 
+                });
+                alert("Site Updated!");
+            } catch (e) { alert("Error updating."); }
         };
 
-        // 4. Countdown Engine
+        // Countdown Logic
         setInterval(() => {
             if (!targetTime) return;
-
-            const now = new Date().getTime();
-            const diff = targetTime - now;
+            const diff = targetTime - new Date().getTime();
 
             if (diff <= 0) {
-                document.getElementById('display').innerHTML = "<h2 style='color:var(--primary)'>THE EVENT HAS BEGUN</h2>";
+                document.getElementById('event-name').innerText = "EVENT LIVE";
                 return;
             }
 
             const _month = 1000 * 60 * 60 * 24 * 30.44;
             const _hour = 1000 * 60 * 60;
             const _min = 1000 * 60;
+            const _sec = 1000;
 
             document.getElementById('months').innerText = Math.floor(diff / _month);
             document.getElementById('hours').innerText = Math.floor((diff % _month) / _hour);
             document.getElementById('minutes').innerText = Math.floor((diff % _hour) / _min);
+            document.getElementById('seconds').innerText = Math.floor((diff % _min) / _sec);
         }, 1000);
+
+        // Particle System (Square Particles)
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.onresize = resize;
+        resize();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 15 + 5;
+                this.speed = Math.random() * 0.5 + 0.2;
+                this.opacity = 0.5;
+            }
+            update() {
+                this.y -= this.speed;
+                if (this.y < -this.size) this.y = canvas.height + this.size;
+            }
+            draw() {
+                ctx.fillStyle = `rgba(0, 0, 0, ${this.opacity})`;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+            }
+        }
+
+        for (let i = 0; i < 50; i++) particles.push(new Particle());
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animate);
+        }
+        animate();
     </script>
 </body>
 </html>
