@@ -3,16 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>countdown to whatever i want</title>
+    <title>event countdown</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* Night Mode Default (Deep Charcoal) */
+            /* Night Mode Default */
             --bg: #1a1a1c;
             --text: #e0e0e0;
             --accent: #ffffff;
             --shadow: rgba(0, 0, 0, 0.4);
             --particle-color: 255, 255, 255;
+            --panel-bg: #2a2a2e;
+            --input-bg: #111;
+        }
+
+        [data-theme="light"] {
+            --bg: #ffffff;
+            --text: #000000;
+            --accent: #000000;
+            --shadow: rgba(0, 0, 0, 0.05);
+            --particle-color: 0, 0, 0;
+            --panel-bg: #f0f0f0;
+            --input-bg: #ffffff;
         }
 
         body {
@@ -27,7 +39,7 @@
             justify-content: center;
             min-height: 100vh;
             text-transform: lowercase;
-            transition: background-color 0.5s ease;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         #particle-canvas {
@@ -50,15 +62,16 @@
         }
 
         .broadcast-msg {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 5px 15px;
+            background: rgba(128, 128, 128, 0.2);
+            padding: 8px 20px;
             border-radius: 20px;
-            margin-bottom: 5px;
-            font-size: 0.8rem;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
             font-weight: 700;
             animation: fadeInOut 4s forwards;
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(128, 128, 128, 0.1);
+            color: var(--text);
         }
 
         @keyframes fadeInOut {
@@ -102,30 +115,48 @@
             opacity: 0.5;
         }
 
-        /* Admin UI */
+        /* Draggable Admin Panel */
         #admin-panel {
             display: none;
             position: fixed;
-            bottom: 20px;
-            background: #2a2a2e;
-            color: #fff;
-            padding: 20px;
+            bottom: 40px;
+            right: 40px;
+            background: var(--panel-bg);
+            color: var(--text);
+            padding: 0;
             width: 280px;
             border-radius: 12px;
             z-index: 100;
             text-transform: none;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border: 1px solid rgba(128,128,128,0.2);
+            overflow: hidden;
         }
 
-        #admin-panel h3 { margin: 0 0 10px 0; font-size: 0.9rem; font-weight: 900; color: #fff; }
+        #admin-header {
+            padding: 12px;
+            background: rgba(0,0,0,0.1);
+            cursor: move;
+            font-size: 0.8rem;
+            font-weight: 900;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #admin-content {
+            padding: 20px;
+        }
+
+        #admin-panel h3 { margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 900; }
 
         input {
             width: 100%;
             padding: 10px;
             margin: 5px 0;
-            border: 1px solid #444;
-            background: #111;
-            color: #fff;
+            border: 1px solid rgba(128,128,128,0.3);
+            background: var(--input-bg);
+            color: var(--text);
             font-family: 'Roboto', sans-serif;
             font-size: 0.8rem;
             box-sizing: border-box;
@@ -142,12 +173,13 @@
             border-radius: 6px;
         }
 
-        .btn-save { background: #fff; color: #000; border: none; font-weight: 700; padding: 10px; flex: 1; }
+        .btn-save { background: var(--text); color: var(--bg); border: none; font-weight: 700; padding: 10px; flex: 1; }
         .btn-broadcast { background: #00d2ff; color: #000; border: none; font-weight: 700; padding: 10px; flex: 1; }
+        .btn-theme { background: transparent; color: var(--text); border: 1px solid var(--text); font-size: 0.7rem; padding: 4px 8px; }
         
         .btn-login { 
             background: transparent; 
-            color: #444; 
+            color: #666; 
             margin-top: 40px; 
             border: none; 
             font-size: 0.7rem;
@@ -155,7 +187,7 @@
         }
     </style>
 </head>
-<body>
+<body data-theme="dark">
 
     <canvas id="particle-canvas"></canvas>
 
@@ -173,21 +205,27 @@
     <button id="login-btn" class="btn-login" onclick="window.login()">admin access</button>
 
     <div id="admin-panel">
-        <h3>admin control</h3>
-        <input type="text" id="name-input" placeholder="event name">
-        <input type="datetime-local" id="date-input">
-        <div class="admin-row">
-            <button class="btn-save" onclick="window.updateTimer()">update site</button>
+        <div id="admin-header">
+            <span>admin dashboard (drag me)</span>
+            <button class="btn-theme" onclick="window.toggleTheme()">theme</button>
         </div>
-        <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
-        <h3>live broadcast</h3>
-        <input type="text" id="broadcast-input" placeholder="type a message to spam...">
-        <button class="btn-broadcast" onclick="window.sendBroadcast()">send live</button>
+        <div id="admin-content">
+            <h3>event config</h3>
+            <input type="text" id="name-input" placeholder="event name">
+            <input type="datetime-local" id="date-input">
+            <button class="btn-save" onclick="window.updateTimer()">update site</button>
+            
+            <hr style="border: 0; border-top: 1px solid rgba(128,128,128,0.2); margin: 15px 0;">
+            
+            <h3>live broadcast</h3>
+            <input type="text" id="broadcast-input" placeholder="spam a message...">
+            <button class="btn-broadcast" onclick="window.sendBroadcast()">send live</button>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -205,9 +243,16 @@
         const provider = new GoogleAuthProvider();
 
         let targetTime = null;
-        const sessionStartTime = Date.now();
+        const pageLoadTime = Date.now();
 
-        // 1. Sync Timer Data
+        // 1. Theme Logic
+        window.toggleTheme = () => {
+            const body = document.body;
+            const current = body.getAttribute('data-theme');
+            body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+        };
+
+        // 2. Sync Timer Data
         onSnapshot(doc(db, "config", "timer"), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
@@ -216,15 +261,15 @@
             }
         });
 
-        // 2. Live Broadcast Listener (Only shows messages sent AFTER page load)
+        // 3. Live Broadcasts (Fixed Logic)
         const broadcastCol = collection(db, "broadcasts");
         onSnapshot(broadcastCol, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added") {
                     const data = change.doc.data();
-                    // Simple check: only show if the message is fresh (sent in last 5 seconds)
-                    // and we haven't seen it before.
-                    if (data.timestamp && data.timestamp.toMillis() > sessionStartTime) {
+                    // Using a timestamp check to ensure it's "live"
+                    const msgTime = data.sentAt ? new Date(data.sentAt).getTime() : 0;
+                    if (msgTime > pageLoadTime - 2000) { // 2s buffer for clock sync
                         showBroadcastMessage(data.text);
                     }
                 }
@@ -240,7 +285,7 @@
             setTimeout(() => msg.remove(), 4000);
         }
 
-        // 3. Admin & Auth
+        // 4. Admin & Auth
         window.login = () => signInWithPopup(auth, provider);
 
         onAuthStateChanged(auth, (user) => {
@@ -262,13 +307,43 @@
             const text = input.value;
             if (!text) return;
             input.value = "";
-            await addDoc(collection(db, "broadcasts"), {
-                text: text,
-                timestamp: serverTimestamp()
-            });
+            try {
+                await addDoc(collection(db, "broadcasts"), {
+                    text: text,
+                    sentAt: new Date().toISOString() // Use ISO string for reliable live filtering
+                });
+            } catch (err) {
+                console.error("Broadcast failed:", err);
+            }
         };
 
-        // 4. Timer Logic
+        // 5. Draggable Logic
+        const panel = document.getElementById("admin-panel");
+        const header = document.getElementById("admin-header");
+        let isDragging = false;
+        let offset = { x: 0, y: 0 };
+
+        header.onmousedown = (e) => {
+            isDragging = true;
+            offset.x = e.clientX - panel.offsetLeft;
+            offset.y = e.clientY - panel.offsetTop;
+            header.style.cursor = "grabbing";
+        };
+
+        document.onmousemove = (e) => {
+            if (!isDragging) return;
+            panel.style.left = (e.clientX - offset.x) + "px";
+            panel.style.top = (e.clientY - offset.y) + "px";
+            panel.style.right = "auto";
+            panel.style.bottom = "auto";
+        };
+
+        document.onmouseup = () => {
+            isDragging = false;
+            header.style.cursor = "move";
+        };
+
+        // 6. Timer Logic
         setInterval(() => {
             if (!targetTime) return;
             const diff = targetTime - new Date().getTime();
@@ -285,7 +360,7 @@
             document.getElementById('seconds').innerText = Math.floor((diff % _min) / _sec).toString().padStart(2, '0');
         }, 1000);
 
-        // Rotating Particles
+        // 7. Rotating Particles
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
@@ -296,10 +371,10 @@
             constructor() {
                 this.x = Math.random() * canvas.width;
                 this.y = Math.random() * canvas.height;
-                this.size = Math.random() * 10 + 2;
-                this.speed = Math.random() * 0.2 + 0.05;
+                this.size = Math.random() * 8 + 2;
+                this.speed = Math.random() * 0.15 + 0.05;
                 this.angle = Math.random() * 360;
-                this.rotationSpeed = Math.random() * 1 - 0.5;
+                this.rotationSpeed = Math.random() * 0.8 - 0.4;
             }
             update() {
                 this.y -= this.speed;
@@ -310,12 +385,13 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.angle * Math.PI / 180);
-                ctx.fillStyle = `rgba(var(--particle-color), 0.15)`;
+                const color = getComputedStyle(document.body).getPropertyValue('--particle-color');
+                ctx.fillStyle = `rgba(${color}, 0.15)`;
                 ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
                 ctx.restore();
             }
         }
-        for (let i = 0; i < 40; i++) particles.push(new Particle());
+        for (let i = 0; i < 45; i++) particles.push(new Particle());
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             particles.forEach(p => { p.update(); p.draw(); });
