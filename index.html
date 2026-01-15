@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>scul countdown</title>
+    <title>countdown to whatever i want</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #ffffff;
             --text: #000000;
-            --panel: rgba(255, 255, 255, 0.9);
         }
 
         body {
-            font-family: 'Arial Black', Gadget, sans-serif;
+            font-family: 'Roboto', sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
-            overflow: hidden; /* Keeps particles contained */
+            overflow: hidden;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -24,7 +24,6 @@
             min-height: 100vh;
         }
 
-        /* Particle Canvas */
         #particle-canvas {
             position: fixed;
             top: 0; left: 0;
@@ -32,91 +31,89 @@
             z-index: -1;
         }
 
-        /* Text Styling */
         h1 {
-            font-size: 2.5rem;
-            text-transform: uppercase;
+            font-size: 3rem;
             font-weight: 900;
-            margin-bottom: 2rem;
-            text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
-            text-align: center;
+            margin-bottom: 1rem;
+            /* Centered shadow: 0px offset X, 0px offset Y */
+            text-shadow: 0px 0px 15px rgba(0,0,0,0.15);
+            text-transform: uppercase;
         }
 
         .timer-container {
             display: flex;
-            align-items: baseline;
-            gap: 20px;
-        }
-
-        /* Boxes for Months, Hours, Minutes */
-        .time-box {
-            background: #000;
-            color: #fff;
-            padding: 20px 30px;
-            border-radius: 0px; /* Square aesthetic */
+            gap: 40px;
             text-align: center;
-            box-shadow: 5px 5px 0px rgba(0,0,0,0.2);
         }
 
-        .time-box span {
-            display: block;
-            font-size: 3.5rem;
+        .unit-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .number {
+            font-size: 5rem;
             font-weight: 900;
+            line-height: 1;
+            /* Centered shadow */
+            text-shadow: 0px 0px 12px rgba(0,0,0,0.2);
         }
 
         .label {
-            font-size: 0.8rem;
+            font-size: 0.9rem;
+            font-weight: 700;
             text-transform: uppercase;
-            margin-top: 5px;
-        }
-
-        /* Seconds Styling (No Box, Black Text) */
-        .seconds-container {
-            text-align: center;
-            margin-left: 10px;
-        }
-
-        #seconds {
-            font-size: 5rem;
-            font-weight: 900;
-            color: #000;
-            text-shadow: 3px 3px 0px rgba(0,0,0,0.1);
+            letter-spacing: 2px;
+            margin-top: 10px;
+            text-shadow: 0px 0px 5px rgba(0,0,0,0.1);
         }
 
         /* Admin UI */
         #admin-panel {
             display: none;
             position: fixed;
-            bottom: 20px;
-            background: #000;
-            color: #fff;
-            padding: 20px;
-            width: 300px;
+            bottom: 30px;
+            background: #fff;
+            color: #000;
+            padding: 25px;
+            width: 320px;
+            border: 4px solid #000;
             z-index: 100;
-            box-shadow: 10px 10px 0px rgba(0,0,0,0.2);
+            box-shadow: 0px 0px 20px rgba(0,0,0,0.2);
         }
+
+        #admin-panel h3 { margin-top: 0; font-weight: 900; }
 
         input {
             width: 100%;
             padding: 10px;
-            margin: 5px 0;
-            border: none;
+            margin: 8px 0;
+            border: 2px solid #000;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
             box-sizing: border-box;
-            font-weight: bold;
         }
 
         button {
             cursor: pointer;
+            font-family: 'Roboto', sans-serif;
             font-weight: 900;
             text-transform: uppercase;
-            border: none;
-            padding: 10px;
+            transition: 0.2s;
         }
 
-        .btn-save { background: #fff; color: #000; width: 100%; margin-top: 10px; }
-        .btn-login { background: #000; color: #fff; margin-top: 20px; border: 2px solid #000; }
-        
-        #status { font-family: monospace; font-size: 0.7rem; margin-top: 10px; }
+        .btn-save { background: #000; color: #fff; width: 100%; padding: 12px; border: none; }
+        .btn-save:hover { background: #333; }
+
+        .btn-login { 
+            background: transparent; 
+            color: #000; 
+            margin-top: 40px; 
+            border: none; 
+            text-decoration: underline;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
@@ -126,26 +123,31 @@
     <h1 id="event-name">LOADING...</h1>
 
     <div class="timer-container">
-        <div class="time-box"><span id="months">00</span><div class="label">Months</div></div>
-        <div class="time-box"><span id="hours">00</span><div class="label">Hours</div></div>
-        <div class="time-box"><span id="minutes">00</span><div class="label">Minutes</div></div>
-        
-        <div class="seconds-container">
-            <span id="seconds">00</span>
-            <div class="label" style="color:#000">Seconds</div>
+        <div class="unit-group">
+            <span class="number" id="months">00</span>
+            <div class="label">Months</div>
+        </div>
+        <div class="unit-group">
+            <span class="number" id="hours">00</span>
+            <div class="label">Hours</div>
+        </div>
+        <div class="unit-group">
+            <span class="number" id="minutes">00</span>
+            <div class="label">Minutes</div>
+        </div>
+        <div class="unit-group">
+            <span class="number" id="seconds">00</span>
+            <div class="label">Seconds</div>
         </div>
     </div>
 
-    <button id="login-btn" class="btn-login" onclick="window.login()">Admin Access</button>
+    <button id="login-btn" class="btn-login" onclick="window.login()">ADMIN ACCESS</button>
 
     <div id="admin-panel">
-        <div style="font-size: 1.2rem; margin-bottom: 10px;">ADMIN TOOLS</div>
-        <label>Event Name:</label>
-        <input type="text" id="name-input" placeholder="Enter Event Name">
-        <label>Target Date:</label>
+        <h3>ADMIN PANEL</h3>
+        <input type="text" id="name-input" placeholder="Event Name">
         <input type="datetime-local" id="date-input">
-        <button class="btn-save" onclick="window.updateTimer()">Update Global Site</button>
-        <div id="status">Verified</div>
+        <button class="btn-save" onclick="window.updateTimer()">Update Site</button>
     </div>
 
     <script type="module">
@@ -169,12 +171,11 @@
 
         let targetTime = null;
 
-        // Sync Data (Name and Time)
         onSnapshot(doc(db, "config", "timer"), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
                 targetTime = new Date(data.targetTime).getTime();
-                document.getElementById('event-name').innerText = data.eventName || "COUNTDOWN";
+                document.getElementById('event-name').innerText = data.eventName || "EVENT";
             }
         });
 
@@ -190,39 +191,30 @@
         window.updateTimer = async () => {
             const dateVal = document.getElementById('date-input').value;
             const nameVal = document.getElementById('name-input').value;
-            if (!dateVal || !nameVal) return alert("Fill out both fields");
-            
+            if (!dateVal || !nameVal) return alert("Fill out both boxes");
             try {
-                await setDoc(doc(db, "config", "timer"), { 
-                    targetTime: dateVal,
-                    eventName: nameVal 
-                });
-                alert("Site Updated!");
-            } catch (e) { alert("Error updating."); }
+                await setDoc(doc(db, "config", "timer"), { targetTime: dateVal, eventName: nameVal });
+                alert("Updated!");
+            } catch (e) { alert("Error."); }
         };
 
-        // Countdown Logic
         setInterval(() => {
             if (!targetTime) return;
             const diff = targetTime - new Date().getTime();
-
-            if (diff <= 0) {
-                document.getElementById('event-name').innerText = "EVENT LIVE";
-                return;
-            }
+            if (diff <= 0) { document.getElementById('event-name').innerText = "LIVE"; return; }
 
             const _month = 1000 * 60 * 60 * 24 * 30.44;
             const _hour = 1000 * 60 * 60;
             const _min = 1000 * 60;
             const _sec = 1000;
 
-            document.getElementById('months').innerText = Math.floor(diff / _month);
-            document.getElementById('hours').innerText = Math.floor((diff % _month) / _hour);
-            document.getElementById('minutes').innerText = Math.floor((diff % _hour) / _min);
-            document.getElementById('seconds').innerText = Math.floor((diff % _min) / _sec);
+            document.getElementById('months').innerText = Math.floor(diff / _month).toString().padStart(2, '0');
+            document.getElementById('hours').innerText = Math.floor((diff % _month) / _hour).toString().padStart(2, '0');
+            document.getElementById('minutes').innerText = Math.floor((diff % _hour) / _min).toString().padStart(2, '0');
+            document.getElementById('seconds').innerText = Math.floor((diff % _min) / _sec).toString().padStart(2, '0');
         }, 1000);
 
-        // Particle System (Square Particles)
+        // Rotating Square Particles
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
@@ -238,21 +230,28 @@
             constructor() {
                 this.x = Math.random() * canvas.width;
                 this.y = Math.random() * canvas.height;
-                this.size = Math.random() * 15 + 5;
-                this.speed = Math.random() * 0.5 + 0.2;
+                this.size = Math.random() * 20 + 5;
+                this.speed = Math.random() * 0.5 + 0.1;
+                this.angle = Math.random() * 360;
+                this.rotationSpeed = Math.random() * 2 - 1; // Speed of rotation
                 this.opacity = 0.5;
             }
             update() {
                 this.y -= this.speed;
+                this.angle += this.rotationSpeed;
                 if (this.y < -this.size) this.y = canvas.height + this.size;
             }
             draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle * Math.PI / 180);
                 ctx.fillStyle = `rgba(0, 0, 0, ${this.opacity})`;
-                ctx.fillRect(this.x, this.y, this.size, this.size);
+                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.restore();
             }
         }
 
-        for (let i = 0; i < 50; i++) particles.push(new Particle());
+        for (let i = 0; i < 60; i++) particles.push(new Particle());
 
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
