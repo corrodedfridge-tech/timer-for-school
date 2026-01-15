@@ -3,80 +3,169 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event Countdown</title>
+    <title>Live Event Countdown</title>
     <style>
+        :root {
+            --primary: #00f2ff;
+            --bg: #0a0a0c;
+            --card: #16161a;
+            --text: #ffffff;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            text-align: center;
+        }
+
+        /* Subtle Glow Background */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px; height: 400px;
+            background: var(--primary);
+            filter: blur(180px);
+            opacity: 0.1;
+            z-index: -1;
+        }
+
+        h1 {
+            font-size: 1rem;
+            letter-spacing: 0.3rem;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
         }
 
         .timer-container {
             display: flex;
-            gap: 15px;
-            margin-bottom: 30px;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .time-box {
-            background: #1e1e1e;
-            padding: 20px;
-            border-radius: 12px;
-            min-width: 80px;
-            text-align: center;
-            border: 1px solid #333;
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 24px;
+            min-width: 130px;
+            border: 1px solid #222;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
 
-        .time-box span { display: block; font-size: 2.5rem; font-weight: bold; color: #00d2ff; }
-        .label { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .time-box span {
+            display: block;
+            font-size: 4rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+        }
 
+        .label {
+            font-size: 0.7rem;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 8px;
+        }
+
+        /* Admin Controls */
         #admin-panel {
             display: none;
-            background: #1e1e1e;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #00d2ff;
-            margin-top: 20px;
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 24px;
+            border: 1px solid var(--primary);
+            margin-top: 3rem;
+            max-width: 400px;
+            width: 90%;
         }
 
-        input { padding: 10px; border-radius: 6px; border: 1px solid #333; background: #000; color: #fff; margin-bottom: 10px; }
-        button { padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-login { background: #444; color: white; }
-        .btn-save { background: #00d2ff; color: #000; }
-        #status { margin-top: 10px; font-size: 0.8rem; color: #555; }
+        input[type="datetime-local"] {
+            background: #000;
+            border: 1px solid #333;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-save {
+            background: var(--primary);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            width: 100%;
+        }
+
+        .btn-login {
+            background: transparent;
+            color: #444;
+            border: 1px solid #333;
+            padding: 8px 16px;
+            border-radius: 8px;
+            margin-top: 4rem;
+        }
+
+        .btn-login:hover { color: white; border-color: white; }
+
+        #status { margin-top: 1rem; font-size: 0.8rem; color: #333; }
     </style>
 </head>
 <body>
 
-    <h1 id="event-title">COUNTDOWN TO EVENT</h1>
+    <h1>Countdown to Event</h1>
 
     <div class="timer-container" id="display">
-        <div class="time-box"><span id="months">0</span><div class="label">Months</div></div>
-        <div class="time-box"><span id="hours">0</span><div class="label">Hours</div></div>
-        <div class="time-box"><span id="minutes">0</span><div class="label">Minutes</div></div>
+        <div class="time-box">
+            <span id="months">0</span>
+            <div class="label">Months</div>
+        </div>
+        <div class="time-box">
+            <span id="hours">0</span>
+            <div class="label">Hours</div>
+        </div>
+        <div class="time-box">
+            <span id="minutes">0</span>
+            <div class="label">Minutes</div>
+        </div>
     </div>
-
-    <button id="login-btn" class="btn-login" onclick="window.login()">Admin Login</button>
 
     <div id="admin-panel">
-        <h3 style="margin-top:0">Special Powers Active</h3>
+        <h2 style="margin-top:0; color:var(--primary); font-size: 1.2rem;">Special Powers Active</h2>
         <input type="datetime-local" id="date-input">
-        <button class="btn-save" onclick="window.updateTimer()">Update for Everyone</button>
+        <button class="btn-save" onclick="window.updateTimer()">Update Global Timer</button>
     </div>
 
-    <div id="status">Checking access...</div>
+    <button id="login-btn" class="btn-login" onclick="window.login()">Admin Access</button>
+    <div id="status">Public View</div>
 
     <script type="module">
+        // Import Firebase modules from CDN
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // Your SDK config
+        // Your exact Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBU40uJSFMhEBeNDlNclLfCEp0cxL5bND4",
             authDomain: "countdowns-208d2.firebaseapp.com",
@@ -86,21 +175,22 @@
             appId: "1:130020979616:web:bc01b82ffd7eb400e1aac5"
         };
 
+        // Initialize
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        let targetDate = null;
+        let targetTime = null;
 
-        // 1. Listen for the time set in Firestore
-        onSnapshot(doc(db, "config", "timer"), (docSnap) => {
-            if (docSnap.exists()) {
-                targetDate = new Date(docSnap.data().targetTime).getTime();
+        // 1. Sync timer from Firestore
+        onSnapshot(doc(db, "config", "timer"), (snapshot) => {
+            if (snapshot.exists()) {
+                targetTime = new Date(snapshot.data().targetTime).getTime();
             }
         });
 
-        // 2. Auth Logic
+        // 2. Authentication logic
         window.login = () => signInWithPopup(auth, provider);
 
         onAuthStateChanged(auth, (user) => {
@@ -109,38 +199,37 @@
             const status = document.getElementById('status');
 
             if (user) {
-                status.innerText = `Logged in as: ${user.email}`;
+                status.innerText = `Verified: ${user.email}`;
                 loginBtn.style.display = "none";
+                // Only show panel to your account
                 if (user.email === "mactane12@gmail.com") {
                     adminPanel.style.display = "block";
                 }
-            } else {
-                status.innerText = "Public View";
-                adminPanel.style.display = "none";
             }
         });
 
-        // 3. Update Function
+        // 3. Admin Update logic
         window.updateTimer = async () => {
-            const newTime = document.getElementById('date-input').value;
-            if(!newTime) return alert("Select a date first!");
+            const dateValue = document.getElementById('date-input').value;
+            if (!dateValue) return alert("Select a date!");
+            
             try {
-                await setDoc(doc(db, "config", "timer"), { targetTime: newTime });
-                alert("Success! The countdown has changed.");
-            } catch (e) {
-                alert("Permission Denied: You aren't mactane12@gmail.com");
+                await setDoc(doc(db, "config", "timer"), { targetTime: dateValue });
+                alert("Time updated for all users.");
+            } catch (err) {
+                alert("Permission Denied: Only mactane12@gmail.com can do this.");
             }
         };
 
-        // 4. Timer Math
+        // 4. Countdown Engine
         setInterval(() => {
-            if (!targetDate) return;
+            if (!targetTime) return;
 
             const now = new Date().getTime();
-            const diff = targetDate - now;
+            const diff = targetTime - now;
 
             if (diff <= 0) {
-                document.getElementById('display').innerHTML = "<h2>EVENT LIVE</h2>";
+                document.getElementById('display').innerHTML = "<h2 style='color:var(--primary)'>THE EVENT HAS BEGUN</h2>";
                 return;
             }
 
@@ -148,13 +237,9 @@
             const _hour = 1000 * 60 * 60;
             const _min = 1000 * 60;
 
-            const months = Math.floor(diff / _month);
-            const hours = Math.floor((diff % _month) / _hour);
-            const mins = Math.floor((diff % _hour) / _min);
-
-            document.getElementById('months').innerText = months;
-            document.getElementById('hours').innerText = hours;
-            document.getElementById('minutes').innerText = mins;
+            document.getElementById('months').innerText = Math.floor(diff / _month);
+            document.getElementById('hours').innerText = Math.floor((diff % _month) / _hour);
+            document.getElementById('minutes').innerText = Math.floor((diff % _hour) / _min);
         }, 1000);
     </script>
 </body>
