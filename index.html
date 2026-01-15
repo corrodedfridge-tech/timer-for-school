@@ -3,12 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>event countdown to whatever i want</title>
+    <title>countdown to whatever i want</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #ffffff;
-            --text: #000000;
+            /* Night Mode Default (Deep Charcoal) */
+            --bg: #1a1a1c;
+            --text: #e0e0e0;
+            --accent: #ffffff;
+            --shadow: rgba(0, 0, 0, 0.4);
+            --particle-color: 255, 255, 255;
         }
 
         body {
@@ -22,8 +26,8 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            /* Forces all text in the body to lowercase */
             text-transform: lowercase;
+            transition: background-color 0.5s ease;
         }
 
         #particle-canvas {
@@ -33,18 +37,48 @@
             z-index: -1;
         }
 
+        /* Live Broadcast Area */
+        #broadcast-container {
+            position: fixed;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .broadcast-msg {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px 15px;
+            border-radius: 20px;
+            margin-bottom: 5px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            animation: fadeInOut 4s forwards;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-10px); }
+            10% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
         h1 {
-            font-size: 1.8rem; /* Smaller title */
+            font-size: 1.8rem;
             font-weight: 700;
             margin-bottom: 2rem;
-            /* Very subtle centered shadow */
-            text-shadow: 0px 0px 8px rgba(0,0,0,0.05);
+            text-shadow: 0px 0px 8px var(--shadow);
             letter-spacing: -1px;
         }
 
         .timer-container {
             display: flex;
-            gap: 25px; /* Reduced gap */
+            gap: 25px;
             text-align: center;
         }
 
@@ -55,59 +89,66 @@
         }
 
         .number {
-            font-size: 3rem; /* Smaller numbers */
+            font-size: 3.5rem;
             font-weight: 900;
             line-height: 1;
-            /* Very subtle centered shadow */
-            text-shadow: 0px 0px 10px rgba(0,0,0,0.08);
+            text-shadow: 0px 0px 10px var(--shadow);
         }
 
         .label {
-            font-size: 0.75rem; /* Smaller labels */
+            font-size: 0.75rem;
             font-weight: 700;
             margin-top: 5px;
-            opacity: 0.6; /* Softer look for labels */
+            opacity: 0.5;
         }
 
-        /* Admin UI - Kept functional but smaller */
+        /* Admin UI */
         #admin-panel {
             display: none;
             position: fixed;
             bottom: 20px;
-            background: #fff;
-            color: #000;
-            padding: 15px;
-            width: 250px;
-            border: 2px solid #000;
+            background: #2a2a2e;
+            color: #fff;
+            padding: 20px;
+            width: 280px;
+            border-radius: 12px;
             z-index: 100;
-            text-transform: none; /* Keep admin text readable */
+            text-transform: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
-        #admin-panel h3 { margin: 0 0 10px 0; font-size: 0.9rem; font-weight: 900; }
+        #admin-panel h3 { margin: 0 0 10px 0; font-size: 0.9rem; font-weight: 900; color: #fff; }
 
         input {
             width: 100%;
-            padding: 8px;
+            padding: 10px;
             margin: 5px 0;
-            border: 1px solid #000;
+            border: 1px solid #444;
+            background: #111;
+            color: #fff;
             font-family: 'Roboto', sans-serif;
             font-size: 0.8rem;
             box-sizing: border-box;
+            border-radius: 6px;
         }
+
+        .admin-row { display: flex; gap: 5px; margin-top: 5px; }
 
         button {
             cursor: pointer;
             font-family: 'Roboto', sans-serif;
             text-transform: lowercase;
             transition: 0.2s;
+            border-radius: 6px;
         }
 
-        .btn-save { background: #000; color: #fff; width: 100%; padding: 8px; border: none; font-weight: 700; }
+        .btn-save { background: #fff; color: #000; border: none; font-weight: 700; padding: 10px; flex: 1; }
+        .btn-broadcast { background: #00d2ff; color: #000; border: none; font-weight: 700; padding: 10px; flex: 1; }
         
         .btn-login { 
             background: transparent; 
-            color: #ccc; 
-            margin-top: 30px; 
+            color: #444; 
+            margin-top: 40px; 
             border: none; 
             font-size: 0.7rem;
             letter-spacing: 1px;
@@ -118,39 +159,35 @@
 
     <canvas id="particle-canvas"></canvas>
 
+    <div id="broadcast-container"></div>
+
     <h1 id="event-name">loading...</h1>
 
     <div class="timer-container">
-        <div class="unit-group">
-            <span class="number" id="months">00</span>
-            <div class="label">months</div>
-        </div>
-        <div class="unit-group">
-            <span class="number" id="hours">00</span>
-            <div class="label">hours</div>
-        </div>
-        <div class="unit-group">
-            <span class="number" id="minutes">00</span>
-            <div class="label">minutes</div>
-        </div>
-        <div class="unit-group">
-            <span class="number" id="seconds">00</span>
-            <div class="label">seconds</div>
-        </div>
+        <div class="unit-group"><span class="number" id="months">00</span><div class="label">months</div></div>
+        <div class="unit-group"><span class="number" id="hours">00</span><div class="label">hours</div></div>
+        <div class="unit-group"><span class="number" id="minutes">00</span><div class="label">minutes</div></div>
+        <div class="unit-group"><span class="number" id="seconds">00</span><div class="label">seconds</div></div>
     </div>
 
     <button id="login-btn" class="btn-login" onclick="window.login()">admin access</button>
 
     <div id="admin-panel">
-        <h3>admin panel</h3>
+        <h3>admin control</h3>
         <input type="text" id="name-input" placeholder="event name">
         <input type="datetime-local" id="date-input">
-        <button class="btn-save" onclick="window.updateTimer()">update</button>
+        <div class="admin-row">
+            <button class="btn-save" onclick="window.updateTimer()">update site</button>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
+        <h3>live broadcast</h3>
+        <input type="text" id="broadcast-input" placeholder="type a message to spam...">
+        <button class="btn-broadcast" onclick="window.sendBroadcast()">send live</button>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -168,7 +205,9 @@
         const provider = new GoogleAuthProvider();
 
         let targetTime = null;
+        const sessionStartTime = Date.now();
 
+        // 1. Sync Timer Data
         onSnapshot(doc(db, "config", "timer"), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
@@ -177,6 +216,31 @@
             }
         });
 
+        // 2. Live Broadcast Listener (Only shows messages sent AFTER page load)
+        const broadcastCol = collection(db, "broadcasts");
+        onSnapshot(broadcastCol, (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === "added") {
+                    const data = change.doc.data();
+                    // Simple check: only show if the message is fresh (sent in last 5 seconds)
+                    // and we haven't seen it before.
+                    if (data.timestamp && data.timestamp.toMillis() > sessionStartTime) {
+                        showBroadcastMessage(data.text);
+                    }
+                }
+            });
+        });
+
+        function showBroadcastMessage(text) {
+            const container = document.getElementById('broadcast-container');
+            const msg = document.createElement('div');
+            msg.className = 'broadcast-msg';
+            msg.innerText = text.toLowerCase();
+            container.appendChild(msg);
+            setTimeout(() => msg.remove(), 4000);
+        }
+
+        // 3. Admin & Auth
         window.login = () => signInWithPopup(auth, provider);
 
         onAuthStateChanged(auth, (user) => {
@@ -190,11 +254,21 @@
             const dateVal = document.getElementById('date-input').value;
             const nameVal = document.getElementById('name-input').value;
             if (!dateVal || !nameVal) return;
-            try {
-                await setDoc(doc(db, "config", "timer"), { targetTime: dateVal, eventName: nameVal.toLowerCase() });
-            } catch (e) { console.error(e); }
+            await setDoc(doc(db, "config", "timer"), { targetTime: dateVal, eventName: nameVal.toLowerCase() });
         };
 
+        window.sendBroadcast = async () => {
+            const input = document.getElementById('broadcast-input');
+            const text = input.value;
+            if (!text) return;
+            input.value = "";
+            await addDoc(collection(db, "broadcasts"), {
+                text: text,
+                timestamp: serverTimestamp()
+            });
+        };
+
+        // 4. Timer Logic
         setInterval(() => {
             if (!targetTime) return;
             const diff = targetTime - new Date().getTime();
@@ -211,27 +285,21 @@
             document.getElementById('seconds').innerText = Math.floor((diff % _min) / _sec).toString().padStart(2, '0');
         }, 1000);
 
-        // Rotating Square Particles
+        // Rotating Particles
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
-
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.onresize = resize;
-        resize();
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.onresize = resize; resize();
 
         class Particle {
             constructor() {
                 this.x = Math.random() * canvas.width;
                 this.y = Math.random() * canvas.height;
-                this.size = Math.random() * 12 + 3; // Smaller particles
-                this.speed = Math.random() * 0.3 + 0.1;
+                this.size = Math.random() * 10 + 2;
+                this.speed = Math.random() * 0.2 + 0.05;
                 this.angle = Math.random() * 360;
-                this.rotationSpeed = Math.random() * 1.5 - 0.75;
-                this.opacity = 0.3; // More transparent
+                this.rotationSpeed = Math.random() * 1 - 0.5;
             }
             update() {
                 this.y -= this.speed;
@@ -242,14 +310,12 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.angle * Math.PI / 180);
-                ctx.fillStyle = `rgba(0, 0, 0, ${this.opacity})`;
-                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.fillStyle = `rgba(var(--particle-color), 0.15)`;
+                ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
                 ctx.restore();
             }
         }
-
         for (let i = 0; i < 40; i++) particles.push(new Particle());
-
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             particles.forEach(p => { p.update(); p.draw(); });
