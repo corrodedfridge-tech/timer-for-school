@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>countdown to whatever i want</title>
+    <title>event countdown to whatever i want</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -22,6 +22,8 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
+            /* Forces all text in the body to lowercase */
+            text-transform: lowercase;
         }
 
         #particle-canvas {
@@ -32,17 +34,17 @@
         }
 
         h1 {
-            font-size: 3rem;
-            font-weight: 900;
-            margin-bottom: 1rem;
-            /* Centered shadow: 0px offset X, 0px offset Y */
-            text-shadow: 0px 0px 15px rgba(0,0,0,0.15);
-            text-transform: uppercase;
+            font-size: 1.8rem; /* Smaller title */
+            font-weight: 700;
+            margin-bottom: 2rem;
+            /* Very subtle centered shadow */
+            text-shadow: 0px 0px 8px rgba(0,0,0,0.05);
+            letter-spacing: -1px;
         }
 
         .timer-container {
             display: flex;
-            gap: 40px;
+            gap: 25px; /* Reduced gap */
             text-align: center;
         }
 
@@ -53,66 +55,62 @@
         }
 
         .number {
-            font-size: 5rem;
+            font-size: 3rem; /* Smaller numbers */
             font-weight: 900;
             line-height: 1;
-            /* Centered shadow */
-            text-shadow: 0px 0px 12px rgba(0,0,0,0.2);
+            /* Very subtle centered shadow */
+            text-shadow: 0px 0px 10px rgba(0,0,0,0.08);
         }
 
         .label {
-            font-size: 0.9rem;
+            font-size: 0.75rem; /* Smaller labels */
             font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-top: 10px;
-            text-shadow: 0px 0px 5px rgba(0,0,0,0.1);
+            margin-top: 5px;
+            opacity: 0.6; /* Softer look for labels */
         }
 
-        /* Admin UI */
+        /* Admin UI - Kept functional but smaller */
         #admin-panel {
             display: none;
             position: fixed;
-            bottom: 30px;
+            bottom: 20px;
             background: #fff;
             color: #000;
-            padding: 25px;
-            width: 320px;
-            border: 4px solid #000;
+            padding: 15px;
+            width: 250px;
+            border: 2px solid #000;
             z-index: 100;
-            box-shadow: 0px 0px 20px rgba(0,0,0,0.2);
+            text-transform: none; /* Keep admin text readable */
         }
 
-        #admin-panel h3 { margin-top: 0; font-weight: 900; }
+        #admin-panel h3 { margin: 0 0 10px 0; font-size: 0.9rem; font-weight: 900; }
 
         input {
             width: 100%;
-            padding: 10px;
-            margin: 8px 0;
-            border: 2px solid #000;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #000;
             font-family: 'Roboto', sans-serif;
-            font-weight: 700;
+            font-size: 0.8rem;
             box-sizing: border-box;
         }
 
         button {
             cursor: pointer;
             font-family: 'Roboto', sans-serif;
-            font-weight: 900;
-            text-transform: uppercase;
+            text-transform: lowercase;
             transition: 0.2s;
         }
 
-        .btn-save { background: #000; color: #fff; width: 100%; padding: 12px; border: none; }
-        .btn-save:hover { background: #333; }
-
+        .btn-save { background: #000; color: #fff; width: 100%; padding: 8px; border: none; font-weight: 700; }
+        
         .btn-login { 
             background: transparent; 
-            color: #000; 
-            margin-top: 40px; 
+            color: #ccc; 
+            margin-top: 30px; 
             border: none; 
-            text-decoration: underline;
-            font-size: 0.8rem;
+            font-size: 0.7rem;
+            letter-spacing: 1px;
         }
     </style>
 </head>
@@ -120,34 +118,34 @@
 
     <canvas id="particle-canvas"></canvas>
 
-    <h1 id="event-name">LOADING...</h1>
+    <h1 id="event-name">loading...</h1>
 
     <div class="timer-container">
         <div class="unit-group">
             <span class="number" id="months">00</span>
-            <div class="label">Months</div>
+            <div class="label">months</div>
         </div>
         <div class="unit-group">
             <span class="number" id="hours">00</span>
-            <div class="label">Hours</div>
+            <div class="label">hours</div>
         </div>
         <div class="unit-group">
             <span class="number" id="minutes">00</span>
-            <div class="label">Minutes</div>
+            <div class="label">minutes</div>
         </div>
         <div class="unit-group">
             <span class="number" id="seconds">00</span>
-            <div class="label">Seconds</div>
+            <div class="label">seconds</div>
         </div>
     </div>
 
-    <button id="login-btn" class="btn-login" onclick="window.login()">ADMIN ACCESS</button>
+    <button id="login-btn" class="btn-login" onclick="window.login()">admin access</button>
 
     <div id="admin-panel">
-        <h3>ADMIN PANEL</h3>
-        <input type="text" id="name-input" placeholder="Event Name">
+        <h3>admin panel</h3>
+        <input type="text" id="name-input" placeholder="event name">
         <input type="datetime-local" id="date-input">
-        <button class="btn-save" onclick="window.updateTimer()">Update Site</button>
+        <button class="btn-save" onclick="window.updateTimer()">update</button>
     </div>
 
     <script type="module">
@@ -175,7 +173,7 @@
             if (snap.exists()) {
                 const data = snap.data();
                 targetTime = new Date(data.targetTime).getTime();
-                document.getElementById('event-name').innerText = data.eventName || "EVENT";
+                document.getElementById('event-name').innerText = (data.eventName || "event").toLowerCase();
             }
         });
 
@@ -191,17 +189,16 @@
         window.updateTimer = async () => {
             const dateVal = document.getElementById('date-input').value;
             const nameVal = document.getElementById('name-input').value;
-            if (!dateVal || !nameVal) return alert("Fill out both boxes");
+            if (!dateVal || !nameVal) return;
             try {
-                await setDoc(doc(db, "config", "timer"), { targetTime: dateVal, eventName: nameVal });
-                alert("Updated!");
-            } catch (e) { alert("Error."); }
+                await setDoc(doc(db, "config", "timer"), { targetTime: dateVal, eventName: nameVal.toLowerCase() });
+            } catch (e) { console.error(e); }
         };
 
         setInterval(() => {
             if (!targetTime) return;
             const diff = targetTime - new Date().getTime();
-            if (diff <= 0) { document.getElementById('event-name').innerText = "LIVE"; return; }
+            if (diff <= 0) { document.getElementById('event-name').innerText = "live"; return; }
 
             const _month = 1000 * 60 * 60 * 24 * 30.44;
             const _hour = 1000 * 60 * 60;
@@ -230,11 +227,11 @@
             constructor() {
                 this.x = Math.random() * canvas.width;
                 this.y = Math.random() * canvas.height;
-                this.size = Math.random() * 20 + 5;
-                this.speed = Math.random() * 0.5 + 0.1;
+                this.size = Math.random() * 12 + 3; // Smaller particles
+                this.speed = Math.random() * 0.3 + 0.1;
                 this.angle = Math.random() * 360;
-                this.rotationSpeed = Math.random() * 2 - 1; // Speed of rotation
-                this.opacity = 0.5;
+                this.rotationSpeed = Math.random() * 1.5 - 0.75;
+                this.opacity = 0.3; // More transparent
             }
             update() {
                 this.y -= this.speed;
@@ -251,7 +248,7 @@
             }
         }
 
-        for (let i = 0; i < 60; i++) particles.push(new Particle());
+        for (let i = 0; i < 40; i++) particles.push(new Particle());
 
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
