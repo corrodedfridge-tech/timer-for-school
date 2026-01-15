@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Countdown</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .timer-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .time-box {
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 12px;
+            min-width: 80px;
+            text-align: center;
+            border: 1px solid #333;
+        }
+
+        .time-box span { display: block; font-size: 2.5rem; font-weight: bold; color: #00d2ff; }
+        .label { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+        #admin-panel {
+            display: none;
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #00d2ff;
+            margin-top: 20px;
+        }
+
+        input { padding: 10px; border-radius: 6px; border: 1px solid #333; background: #000; color: #fff; margin-bottom: 10px; }
+        button { padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-login { background: #444; color: white; }
+        .btn-save { background: #00d2ff; color: #000; }
+        #status { margin-top: 10px; font-size: 0.8rem; color: #555; }
+    </style>
+</head>
+<body>
+
+    <h1 id="event-title">COUNTDOWN TO EVENT</h1>
+
+    <div class="timer-container" id="display">
+        <div class="time-box"><span id="months">0</span><div class="label">Months</div></div>
+        <div class="time-box"><span id="hours">0</span><div class="label">Hours</div></div>
+        <div class="time-box"><span id="minutes">0</span><div class="label">Minutes</div></div>
+    </div>
+
+    <button id="login-btn" class="btn-login" onclick="window.login()">Admin Login</button>
+
+    <div id="admin-panel">
+        <h3 style="margin-top:0">Special Powers Active</h3>
+        <input type="datetime-local" id="date-input">
+        <button class="btn-save" onclick="window.updateTimer()">Update for Everyone</button>
+    </div>
+
+    <div id="status">Checking access...</div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        // Your SDK config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBU40uJSFMhEBeNDlNclLfCEp0cxL5bND4",
+            authDomain: "countdowns-208d2.firebaseapp.com",
+            projectId: "countdowns-208d2",
+            storageBucket: "countdowns-208d2.firebasestorage.app",
+            messagingSenderId: "130020979616",
+            appId: "1:130020979616:web:bc01b82ffd7eb400e1aac5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        let targetDate = null;
+
+        // 1. Listen for the time set in Firestore
+        onSnapshot(doc(db, "config", "timer"), (docSnap) => {
+            if (docSnap.exists()) {
+                targetDate = new Date(docSnap.data().targetTime).getTime();
+            }
+        });
+
+        // 2. Auth Logic
+        window.login = () => signInWithPopup(auth, provider);
+
+        onAuthStateChanged(auth, (user) => {
+            const adminPanel = document.getElementById('admin-panel');
+            const loginBtn = document.getElementById('login-btn');
+            const status = document.getElementById('status');
+
+            if (user) {
+                status.innerText = `Logged in as: ${user.email}`;
+                loginBtn.style.display = "none";
+                if (user.email === "mactane12@gmail.com") {
+                    adminPanel.style.display = "block";
+                }
+            } else {
+                status.innerText = "Public View";
+                adminPanel.style.display = "none";
+            }
+        });
+
+        // 3. Update Function
+        window.updateTimer = async () => {
+            const newTime = document.getElementById('date-input').value;
+            if(!newTime) return alert("Select a date first!");
+            try {
+                await setDoc(doc(db, "config", "timer"), { targetTime: newTime });
+                alert("Success! The countdown has changed.");
+            } catch (e) {
+                alert("Permission Denied: You aren't mactane12@gmail.com");
+            }
+        };
+
+        // 4. Timer Math
+        setInterval(() => {
+            if (!targetDate) return;
+
+            const now = new Date().getTime();
+            const diff = targetDate - now;
+
+            if (diff <= 0) {
+                document.getElementById('display').innerHTML = "<h2>EVENT LIVE</h2>";
+                return;
+            }
+
+            const _month = 1000 * 60 * 60 * 24 * 30.44;
+            const _hour = 1000 * 60 * 60;
+            const _min = 1000 * 60;
+
+            const months = Math.floor(diff / _month);
+            const hours = Math.floor((diff % _month) / _hour);
+            const mins = Math.floor((diff % _hour) / _min);
+
+            document.getElementById('months').innerText = months;
+            document.getElementById('hours').innerText = hours;
+            document.getElementById('minutes').innerText = mins;
+        }, 1000);
+    </script>
+</body>
+</html>
