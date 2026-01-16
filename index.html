@@ -323,6 +323,7 @@
             <div id="owner-section" style="display: none;">
                 <h3>
                     users 
+                    <button onclick="window.setupUserObserver()" style="background:none; color:inherit; font-size:0.6rem; text-decoration:underline;">(refresh)</button>
                     <span id="user-count-badge" style="font-size: 0.6rem; opacity: 0.5;">0</span>
                 </h3>
                 <div id="user-list">
@@ -352,7 +353,7 @@
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        const OWNER_EMAIL = "mactane12@gmail.com";
+        const OWNER_EMAIL = "mactane12@gmail.com".toLowerCase();
         let targetTime = null;
         let globalTheme = 'dark';
         let personalTheme = localStorage.getItem('personal-theme') || null;
@@ -393,7 +394,8 @@
             if (user) {
                 loginBtn.style.display = "none";
                 logoutBtn.style.display = "block";
-                const isOwner = user.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
+                const userEmail = user.email.toLowerCase();
+                const isOwner = userEmail === OWNER_EMAIL;
                 
                 try {
                     const userRef = doc(db, "users", user.uid);
@@ -406,27 +408,24 @@
 
                     await setDoc(userRef, {
                         uid: user.uid,
-                        email: user.email,
-                        displayName: user.displayName || user.email.split('@')[0],
+                        email: userEmail,
+                        displayName: user.displayName || userEmail.split('@')[0],
                         role: role,
                         lastSeen: serverTimestamp()
                     }, { merge: true });
 
                     currentUserRole = role;
-                    userInfo.innerHTML = `hi, ${user.displayName || user.email.split('@')[0]} <span class="role-badge role-${role}">${role}</span>`;
+                    userInfo.innerHTML = `hi, ${user.displayName || userEmail.split('@')[0]} <span class="role-badge role-${role}">${role}</span>`;
                     
                     if (role === 'admin' || role === 'owner') panel.style.display = "flex";
                     if (role === 'owner') {
                         ownerSection.style.display = "block";
-                        setupUserObserver();
+                        window.setupUserObserver();
                     }
 
-                    // Listen for "Fun Stuff" commands targeting YOU
                     onSnapshot(doc(db, "interactions", user.uid), (snap) => {
                         if (snap.exists()) {
-                            const cmd = snap.data();
-                            handleInteraction(cmd.type);
-                            // Auto-delete command so it doesn't repeat
+                            handleInteraction(snap.data().type);
                             setTimeout(() => deleteDoc(doc(db, "interactions", user.uid)), 1500);
                         }
                     });
@@ -455,13 +454,12 @@
 
         window.triggerFun = async (uid, type) => {
             if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
-            try {
-                await setDoc(doc(db, "interactions", uid), { type, sentAt: serverTimestamp() });
-                showStatus(`Toggled ${type}!`);
-            } catch (e) { showStatus("Interaction blocked.", true); }
+            await setDoc(doc(db, "interactions", uid), { type, sentAt: serverTimestamp() })
+                .then(() => showStatus(`Sent ${type}!`))
+                .catch(e => showStatus("Interaction blocked.", true));
         };
 
-        function setupUserObserver() {
+        window.setupUserObserver = () => {
             onSnapshot(collection(db, "users"), (snapshot) => {
                 const list = document.getElementById('user-list');
                 const countBadge = document.getElementById('user-count-badge');
@@ -470,14 +468,14 @@
                 snapshot.forEach(docSnap => {
                     const u = docSnap.data();
                     count++;
-                    if (u.email.toLowerCase() === OWNER_EMAIL.toLowerCase()) return; 
+                    if (u.email.toLowerCase() === OWNER_EMAIL) return; 
 
                     const div = document.createElement('div');
                     div.className = "user-row";
                     div.innerHTML = `
                         <div class="user-info-bar">
                             <div class="user-meta">
-                                <span>${u.displayName} <small class="role-badge role-${u.role}">${u.role}</small></span>
+                                <span>${u.displayName} <small class="role-badge role-${u.role}">${u.role}</small> ${u.isBanned ? '🚫' : ''}</span>
                                 <span class="user-email">${u.email}</span>
                             </div>
                             <div style="display:flex; gap:4px;">
@@ -490,28 +488,30 @@
                             </div>
                         </div>
                         <div class="user-controls">
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','shake')">📳 shake</button>
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','invert')">🌈 invert</button>
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','confetti')">🎉 party</button>
+                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','shake')">📳</button>
+                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','invert')">🌈</button>
+                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','confetti')">🎉</button>
                         </div>
                     `;
                     list.appendChild(div);
                 });
                 countBadge.innerText = count;
+                if(list.innerHTML === "") list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>no other users found.</p>";
+            }, (err) => {
+                showStatus("Error loading users: " + err.message, true);
             });
-        }
+        };
 
         window.updateRole = async (uid, newRole) => {
             if (currentUserRole !== 'owner') return;
-            await updateDoc(doc(db, "users", uid), { role: newRole }).catch(e => showStatus("Error updating role.", true));
+            await updateDoc(doc(db, "users", uid), { role: newRole }).catch(e => showStatus("Blocked.", true));
         };
 
         window.toggleBan = async (uid, banState) => {
             if (currentUserRole !== 'owner') return;
-            await updateDoc(doc(db, "users", uid), { isBanned: banState }).catch(e => showStatus("Error toggling ban.", true));
+            await updateDoc(doc(db, "users", uid), { isBanned: banState }).catch(e => showStatus("Blocked.", true));
         };
 
-        // Config & Broadcast listeners
         onSnapshot(doc(db, "config", "timer"), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
@@ -557,7 +557,6 @@
             await addDoc(collection(db, "broadcasts"), { text, sentAt: new Date().toISOString() });
         };
 
-        // Dragging
         const panel = document.getElementById("admin-panel");
         const header = document.getElementById("admin-header");
         let isDragging = false; let offset = { x: 0, y: 0 };
@@ -569,7 +568,6 @@
         };
         document.onmouseup = () => isDragging = false;
 
-        // Countdown Logic (Months & Days)
         setInterval(() => {
             if (!targetTime) return;
             const now = new Date();
@@ -585,7 +583,6 @@
             let m = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
             let tempDate = new Date(now);
             tempDate.setMonth(now.getMonth() + m);
-            
             if (tempDate > target) { m--; tempDate = new Date(now); tempDate.setMonth(now.getMonth() + m); }
 
             const dayDiff = Math.floor((target - tempDate) / (1000 * 60 * 60 * 24));
@@ -600,7 +597,6 @@
             document.getElementById('seconds').innerText = seconds.toString().padStart(2, '0');
         }, 1000);
 
-        // Canvas
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
