@@ -212,15 +212,15 @@
             border: 1px solid rgba(128,128,128,0.2);
         }
         
-        #user-info { font-size: 0.7rem; opacity: 0.6; }
+        #user-info { font-size: 0.7rem; opacity: 0.8; display: flex; align-items: center; gap: 5px; }
 
         .role-badge {
             font-size: 0.6rem;
-            padding: 1px 4px;
+            padding: 2px 5px;
             border-radius: 4px;
-            background: rgba(128,128,128,0.3);
+            background: rgba(128, 128, 128, 0.3);
             font-weight: 900;
-            margin-left: 4px;
+            text-transform: uppercase;
         }
         .role-owner { background: #ffd700; color: #000; }
         .role-admin { background: #00d2ff; color: #000; }
@@ -314,16 +314,18 @@
             if (user) {
                 loginBtn.style.display = "none";
                 logoutBtn.style.display = "block";
-                userInfo.innerText = `hi, ${user.displayName || user.email}`;
 
-                // Register user in Firestore
+                // Ensure the OWNER_EMAIL is handled correctly regardless of case
+                const isOwner = user.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
+                
+                // Register/Check user in Firestore
                 const userRef = doc(db, "users", user.uid);
                 const userSnap = await getDoc(userRef);
                 
                 let role = 'member';
                 let isBanned = false;
 
-                if (user.email === OWNER_EMAIL) {
+                if (isOwner) {
                     role = 'owner';
                 } else if (userSnap.exists()) {
                     role = userSnap.data().role || 'member';
@@ -336,7 +338,7 @@
                     return;
                 }
 
-                // Update/Create user record
+                // Force update role if they are the owner email
                 await setDoc(userRef, {
                     uid: user.uid,
                     email: user.email,
@@ -347,6 +349,9 @@
                 }, { merge: true });
 
                 currentUserRole = role;
+
+                // Update UI badge
+                userInfo.innerHTML = `hi, ${user.displayName || user.email.split('@')[0]} <span class="role-badge role-${role}">${role}</span>`;
                 
                 // Show panel for Admin or Owner
                 if (role === 'admin' || role === 'owner') {
@@ -377,7 +382,8 @@
                 list.innerHTML = "";
                 snapshot.forEach(docSnap => {
                     const u = docSnap.data();
-                    if (u.email === OWNER_EMAIL) return; // Hide owner from list to prevent self-demotion
+                    // Don't list the current owner in the management list to avoid accidents
+                    if (u.email.toLowerCase() === OWNER_EMAIL.toLowerCase()) return; 
 
                     const div = document.createElement('div');
                     div.className = "user-row";
