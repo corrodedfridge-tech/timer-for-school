@@ -7,7 +7,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* Night Mode (Deep Charcoal) */
             --bg: #1a1a1c;
             --text: #e0e0e0;
             --accent: #ffffff;
@@ -18,7 +17,6 @@
         }
 
         [data-theme="light"] {
-            /* Old Light Mode */
             --bg: #ffffff;
             --text: #000000;
             --accent: #000000;
@@ -51,7 +49,6 @@
             z-index: -1;
         }
 
-        /* Live Broadcast Styling */
         #broadcast-container {
             position: fixed;
             top: 20px;
@@ -117,22 +114,24 @@
             opacity: 0.5;
         }
 
-        /* Draggable Admin Panel */
+        /* Admin/Management Panel */
         #admin-panel {
             display: none;
             position: fixed;
-            bottom: 40px;
-            right: 40px;
+            bottom: 20px;
+            right: 20px;
             background: var(--panel-bg);
             color: var(--text);
-            padding: 0;
-            width: 280px;
+            width: 320px;
             border-radius: 12px;
             z-index: 2000;
             text-transform: none;
             box-shadow: 0 10px 40px rgba(0,0,0,0.5);
             border: 1px solid rgba(128,128,128,0.2);
             overflow: hidden;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
         }
 
         #admin-header {
@@ -144,15 +143,35 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            user-select: none;
+            flex-shrink: 0;
         }
 
-        #admin-content { padding: 20px; }
-        #admin-panel h3 { margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 900; }
+        #admin-content {
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        #admin-panel h3 { margin: 15px 0 8px 0; font-size: 0.85rem; font-weight: 900; border-bottom: 1px solid rgba(128,128,128,0.2); padding-bottom: 4px; }
+        #admin-panel h3:first-child { margin-top: 0; }
+
+        .user-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(128,128,128,0.1);
+        }
+
+        .user-actions button {
+            font-size: 0.6rem;
+            padding: 2px 4px;
+            margin-left: 2px;
+        }
 
         input {
             width: 100%;
-            padding: 10px;
+            padding: 8px;
             margin: 5px 0;
             border: 1px solid rgba(128,128,128,0.3);
             background: var(--input-bg);
@@ -176,13 +195,35 @@
         .btn-broadcast { background: #00d2ff; color: #000; font-weight: 700; padding: 10px; width: 100%; margin-top: 5px; }
         .btn-theme { background: #ff4757; color: white; border: none; font-size: 0.65rem; padding: 4px 8px; font-weight: 900; }
         
-        .btn-login { 
-            background: transparent; 
-            color: #666; 
-            margin-top: 40px; 
-            font-size: 0.7rem;
-            text-decoration: underline;
+        .auth-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
         }
+
+        .btn-auth { 
+            background: rgba(128,128,128,0.1); 
+            color: var(--text); 
+            padding: 8px 15px;
+            font-size: 0.75rem;
+            border: 1px solid rgba(128,128,128,0.2);
+        }
+        
+        #user-info { font-size: 0.7rem; opacity: 0.6; }
+
+        .role-badge {
+            font-size: 0.6rem;
+            padding: 1px 4px;
+            border-radius: 4px;
+            background: rgba(128,128,128,0.3);
+            font-weight: 900;
+            margin-left: 4px;
+        }
+        .role-owner { background: #ffd700; color: #000; }
+        .role-admin { background: #00d2ff; color: #000; }
     </style>
 </head>
 <body data-theme="dark">
@@ -200,29 +241,44 @@
         <div class="unit-group"><span class="number" id="seconds">00</span><div class="label">seconds</div></div>
     </div>
 
-    <button id="login-btn" class="btn-login" onclick="window.login()">admin access</button>
+    <div class="auth-controls">
+        <span id="user-info"></span>
+        <button id="login-btn" class="btn-auth" onclick="window.login()">login / register</button>
+        <button id="logout-btn" class="btn-auth" style="display:none" onclick="window.logout()">logout</button>
+    </div>
 
-    <div id="admin-panel">
+    <div id="admin-panel" style="display: none;">
         <div id="admin-header">
-            <span>admin dashboard</span>
-            <button class="btn-theme" onclick="window.toggleGlobalTheme()">switch global theme</button>
+            <span>management panel</span>
+            <button class="btn-theme" onclick="window.toggleGlobalTheme()">global theme</button>
         </div>
         <div id="admin-content">
-            <h3>event config</h3>
-            <input type="text" id="name-input" placeholder="event name">
-            <input type="datetime-local" id="date-input">
-            <button class="btn-save" onclick="window.updateTimer()">update site</button>
-            <hr style="border: 0; border-top: 1px solid rgba(128,128,128,0.2); margin: 15px 0;">
-            <h3>live broadcast</h3>
-            <input type="text" id="broadcast-input" placeholder="type message...">
-            <button class="btn-broadcast" onclick="window.sendBroadcast()">broadcast live</button>
+            <div id="timer-section">
+                <h3>event config</h3>
+                <input type="text" id="name-input" placeholder="event name">
+                <input type="datetime-local" id="date-input">
+                <button class="btn-save" onclick="window.updateTimer()">update site</button>
+            </div>
+
+            <div id="broadcast-section">
+                <h3>live broadcast</h3>
+                <input type="text" id="broadcast-input" placeholder="type message...">
+                <button class="btn-broadcast" onclick="window.sendBroadcast()">broadcast live</button>
+            </div>
+
+            <div id="owner-section" style="display: none;">
+                <h3>user management</h3>
+                <div id="user-list">
+                    <!-- Users populated here -->
+                </div>
+            </div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBU40uJSFMhEBeNDlNclLfCEp0cxL5bND4",
@@ -238,32 +294,129 @@
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
+        const OWNER_EMAIL = "mactane12@gmail.com";
         let targetTime = null;
         let currentTheme = 'dark';
+        let currentUserRole = 'member';
         const pageLoadTime = Date.now();
 
-        // 1. Sync Theme & Timer Global
+        // --- Auth Logic ---
+        window.login = () => signInWithPopup(auth, provider);
+        window.logout = () => signOut(auth);
+
+        onAuthStateChanged(auth, async (user) => {
+            const loginBtn = document.getElementById('login-btn');
+            const logoutBtn = document.getElementById('logout-btn');
+            const userInfo = document.getElementById('user-info');
+            const panel = document.getElementById('admin-panel');
+            const ownerSection = document.getElementById('owner-section');
+
+            if (user) {
+                loginBtn.style.display = "none";
+                logoutBtn.style.display = "block";
+                userInfo.innerText = `hi, ${user.displayName || user.email}`;
+
+                // Register user in Firestore
+                const userRef = doc(db, "users", user.uid);
+                const userSnap = await getDoc(userRef);
+                
+                let role = 'member';
+                let isBanned = false;
+
+                if (user.email === OWNER_EMAIL) {
+                    role = 'owner';
+                } else if (userSnap.exists()) {
+                    role = userSnap.data().role || 'member';
+                    isBanned = userSnap.data().isBanned || false;
+                }
+
+                if (isBanned) {
+                    alert("Your account has been banned.");
+                    window.logout();
+                    return;
+                }
+
+                // Update/Create user record
+                await setDoc(userRef, {
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: user.displayName,
+                    role: role,
+                    isBanned: isBanned,
+                    lastSeen: new Date().toISOString()
+                }, { merge: true });
+
+                currentUserRole = role;
+                
+                // Show panel for Admin or Owner
+                if (role === 'admin' || role === 'owner') {
+                    panel.style.display = "flex";
+                } else {
+                    panel.style.display = "none";
+                }
+
+                // Show user management only for Owner
+                if (role === 'owner') {
+                    ownerSection.style.display = "block";
+                    setupUserObserver();
+                }
+
+            } else {
+                loginBtn.style.display = "block";
+                logoutBtn.style.display = "none";
+                userInfo.innerText = "";
+                panel.style.display = "none";
+                currentUserRole = 'member';
+            }
+        });
+
+        // --- User Management Observer (Owner Only) ---
+        function setupUserObserver() {
+            onSnapshot(collection(db, "users"), (snapshot) => {
+                const list = document.getElementById('user-list');
+                list.innerHTML = "";
+                snapshot.forEach(docSnap => {
+                    const u = docSnap.data();
+                    if (u.email === OWNER_EMAIL) return; // Hide owner from list to prevent self-demotion
+
+                    const div = document.createElement('div');
+                    div.className = "user-row";
+                    div.innerHTML = `
+                        <span>${u.displayName || u.email.split('@')[0]} <small class="role-badge ${u.role === 'admin' ? 'role-admin' : ''}">${u.role}</small> ${u.isBanned ? '🚫' : ''}</span>
+                        <div class="user-actions">
+                            <button onclick="window.updateRole('${u.uid}', '${u.role === 'admin' ? 'member' : 'admin'}')">${u.role === 'admin' ? 'demote' : 'promote'}</button>
+                            <button style="background:#ff4757;color:white" onclick="window.toggleBan('${u.uid}', ${!u.isBanned})">${u.isBanned ? 'unban' : 'ban'}</button>
+                        </div>
+                    `;
+                    list.appendChild(div);
+                });
+            });
+        }
+
+        window.updateRole = async (uid, newRole) => {
+            if (currentUserRole !== 'owner') return;
+            await updateDoc(doc(db, "users", uid), { role: newRole });
+        };
+
+        window.toggleBan = async (uid, banState) => {
+            if (currentUserRole !== 'owner') return;
+            await updateDoc(doc(db, "users", uid), { isBanned: banState });
+        };
+
+        // --- Core Site Logic ---
         onSnapshot(doc(db, "config", "timer"), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
-                // Update Timer
                 targetTime = new Date(data.targetTime).getTime();
                 document.getElementById('event-name').innerText = (data.eventName || "event").toLowerCase();
-                
-                // Update Global Theme
                 if (data.theme && data.theme !== currentTheme) {
                     currentTheme = data.theme;
                     document.body.setAttribute('data-theme', currentTheme);
                 }
-            } else {
-                // Initial setup if doc doesn't exist
-                setDoc(doc(db, "config", "timer"), { theme: 'dark', eventName: 'event', targetTime: new Date().toISOString() });
             }
         });
 
-        // 2. Live Broadcasts
-        const broadcastCol = collection(db, "broadcasts");
-        onSnapshot(broadcastCol, (snapshot) => {
+        onSnapshot(collection(db, "broadcasts"), (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added") {
                     const data = change.doc.data();
@@ -285,16 +438,6 @@
             }, 3500);
         }
 
-        // 3. Admin Actions
-        window.login = () => signInWithPopup(auth, provider);
-
-        onAuthStateChanged(auth, (user) => {
-            if (user && user.email === "mactane12@gmail.com") {
-                document.getElementById('admin-panel').style.display = "block";
-                document.getElementById('login-btn').style.display = "none";
-            }
-        });
-
         window.toggleGlobalTheme = async () => {
             const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
             await updateDoc(doc(db, "config", "timer"), { theme: nextTheme });
@@ -315,7 +458,7 @@
             await addDoc(collection(db, "broadcasts"), { text: text, sentAt: new Date().toISOString() });
         };
 
-        // 4. Panel Drag
+        // --- Panel Dragging ---
         const panel = document.getElementById("admin-panel");
         const header = document.getElementById("admin-header");
         let isDragging = false;
@@ -333,7 +476,7 @@
         };
         document.onmouseup = () => isDragging = false;
 
-        // 5. Timer
+        // --- Timer Loop ---
         setInterval(() => {
             if (!targetTime) return;
             const diff = targetTime - new Date().getTime();
@@ -348,7 +491,7 @@
             document.getElementById('seconds').innerText = Math.floor((diff % _min) / _sec).toString().padStart(2, '0');
         }, 1000);
 
-        // 6. Particles
+        // --- Particles ---
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
