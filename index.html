@@ -151,16 +151,27 @@
             overflow-y: auto;
         }
 
-        #admin-panel h3 { margin: 15px 0 8px 0; font-size: 0.85rem; font-weight: 900; border-bottom: 1px solid rgba(128,128,128,0.2); padding-bottom: 4px; }
+        #admin-panel h3 { 
+            margin: 15px 0 8px 0; 
+            font-size: 0.8rem; 
+            font-weight: 900; 
+            border-bottom: 1px solid rgba(128,128,128,0.2); 
+            padding-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
         
         .user-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             padding: 8px 0;
             border-bottom: 1px solid rgba(128,128,128,0.1);
         }
+
+        .user-meta { display: flex; flex-direction: column; }
+        .user-email { font-size: 0.6rem; opacity: 0.5; }
 
         input {
             width: 100%;
@@ -201,37 +212,35 @@
         .btn-auth { 
             background: rgba(128,128,128,0.1); 
             color: var(--text); 
-            padding: 8px 15px;
-            font-size: 0.75rem;
+            padding: 6px 12px;
+            font-size: 0.7rem;
             border: 1px solid rgba(128,128,128,0.2);
         }
         
-        #user-info { font-size: 0.7rem; opacity: 0.9; display: flex; align-items: center; gap: 5px; }
+        #user-info { font-size: 0.7rem; opacity: 1; display: flex; align-items: center; gap: 8px; }
 
         .role-badge {
-            font-size: 0.6rem;
-            padding: 2px 5px;
+            font-size: 0.55rem;
+            padding: 2px 6px;
             border-radius: 4px;
             font-weight: 900;
             text-transform: uppercase;
         }
         .role-owner { background: #ffd700; color: #000; }
         .role-admin { background: #00d2ff; color: #000; }
-        .role-member { background: rgba(128,128,128,0.5); color: #fff; }
+        .role-member { background: rgba(128,128,128,0.3); color: #fff; }
 
-        .force-repair {
-            font-size: 0.55rem;
-            color: #666;
-            text-decoration: underline;
-            background: none;
-            margin-top: 5px;
+        #user-count-badge {
+            font-size: 0.6rem;
+            background: rgba(255,255,255,0.1);
+            padding: 1px 5px;
+            border-radius: 10px;
         }
     </style>
 </head>
 <body data-theme="dark">
 
     <canvas id="particle-canvas"></canvas>
-
     <div id="broadcast-container"></div>
 
     <h1 id="event-name">loading...</h1>
@@ -246,10 +255,7 @@
     <div class="auth-controls">
         <span id="user-info"></span>
         <button id="login-btn" class="btn-auth" onclick="window.login()">login / register</button>
-        <div style="display: flex; gap: 5px;">
-            <button id="logout-btn" class="btn-auth" style="display:none" onclick="window.logout()">logout</button>
-            <button id="repair-btn" class="force-repair" style="display:none" onclick="window.forceOwnerCheck()">fix owner role</button>
-        </div>
+        <button id="logout-btn" class="btn-auth" style="display:none" onclick="window.logout()">logout</button>
     </div>
 
     <div id="admin-panel">
@@ -272,7 +278,10 @@
             </div>
 
             <div id="owner-section" style="display: none;">
-                <h3>user management</h3>
+                <h3>
+                    user management 
+                    <span id="user-count-badge">0</span>
+                </h3>
                 <div id="user-list">
                     <p style="font-size: 0.7rem; opacity: 0.5;">loading users...</p>
                 </div>
@@ -305,30 +314,12 @@
         let currentUserRole = 'member';
         const pageLoadTime = Date.now();
 
-        window.login = () => signInWithPopup(auth, provider).catch(e => console.error("Login failed:", e));
+        window.login = () => signInWithPopup(auth, provider);
         window.logout = () => signOut(auth);
-
-        // This function forces the database to update your role if the automatic check fails
-        window.forceOwnerCheck = async () => {
-            const user = auth.currentUser;
-            if (!user) return;
-            if (user.email.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
-                console.log("Forcing Owner Role Sync...");
-                await setDoc(doc(db, "users", user.uid), {
-                    uid: user.uid,
-                    email: user.email,
-                    displayName: user.displayName,
-                    role: 'owner',
-                    isBanned: false
-                }, { merge: true });
-                window.location.reload(); // Reload to refresh permissions
-            }
-        };
 
         onAuthStateChanged(auth, async (user) => {
             const loginBtn = document.getElementById('login-btn');
             const logoutBtn = document.getElementById('logout-btn');
-            const repairBtn = document.getElementById('repair-btn');
             const userInfo = document.getElementById('user-info');
             const panel = document.getElementById('admin-panel');
             const ownerSection = document.getElementById('owner-section');
@@ -336,21 +327,15 @@
             if (user) {
                 loginBtn.style.display = "none";
                 logoutBtn.style.display = "block";
-                repairBtn.style.display = user.email.toLowerCase() === OWNER_EMAIL.toLowerCase() ? "block" : "none";
 
-                // Check Firestore for profile
-                const userRef = doc(db, "users", user.uid);
-                let userSnap = await getDoc(userRef);
+                const isOwner = user.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
                 
-                let role = 'member';
-                let isBanned = false;
-
-                if (user.email.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
-                    role = 'owner';
-                } else if (userSnap.exists()) {
-                    role = userSnap.data().role || 'member';
-                    isBanned = userSnap.data().isBanned || false;
-                }
+                // Immediate Auto-Registration/Update
+                const userRef = doc(db, "users", user.uid);
+                const userSnap = await getDoc(userRef);
+                
+                let assignedRole = isOwner ? 'owner' : (userSnap.exists() ? (userSnap.data().role || 'member') : 'member');
+                let isBanned = userSnap.exists() ? (userSnap.data().isBanned || false) : false;
 
                 if (isBanned) {
                     alert("Account Banned.");
@@ -358,25 +343,27 @@
                     return;
                 }
 
-                // Initial creation if needed
-                if (!userSnap.exists() || (role === 'owner' && userSnap.data().role !== 'owner')) {
-                    await setDoc(userRef, {
-                        uid: user.uid,
-                        email: user.email,
-                        displayName: user.displayName || "Unknown",
-                        role: role,
-                        isBanned: false,
-                        lastSeen: new Date().toISOString()
-                    }, { merge: true });
+                // Sync profile to database immediately so they show up in the list
+                await setDoc(userRef, {
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: user.displayName || user.email.split('@')[0],
+                    role: assignedRole,
+                    isBanned: isBanned,
+                    lastSeen: new Date().toISOString()
+                }, { merge: true });
+
+                currentUserRole = assignedRole;
+                userInfo.innerHTML = `hi, ${user.displayName || user.email.split('@')[0]} <span class="role-badge role-${assignedRole}">${assignedRole}</span>`;
+                
+                // Show panels based on roles
+                if (assignedRole === 'admin' || assignedRole === 'owner') {
+                    panel.style.display = "flex";
+                } else {
+                    panel.style.display = "none";
                 }
 
-                currentUserRole = role;
-                userInfo.innerHTML = `hi, ${user.displayName || user.email.split('@')[0]} <span class="role-badge role-${role}">${role}</span>`;
-                
-                if (role === 'admin' || role === 'owner') {
-                    panel.style.display = "flex";
-                }
-                if (role === 'owner') {
+                if (assignedRole === 'owner') {
                     ownerSection.style.display = "block";
                     setupUserObserver();
                 }
@@ -384,7 +371,6 @@
             } else {
                 loginBtn.style.display = "block";
                 logoutBtn.style.display = "none";
-                repairBtn.style.display = "none";
                 userInfo.innerText = "";
                 panel.style.display = "none";
                 ownerSection.style.display = "none";
@@ -395,24 +381,42 @@
         function setupUserObserver() {
             onSnapshot(collection(db, "users"), (snapshot) => {
                 const list = document.getElementById('user-list');
+                const countBadge = document.getElementById('user-count-badge');
                 list.innerHTML = "";
+                
+                let count = 0;
                 snapshot.forEach(docSnap => {
                     const u = docSnap.data();
+                    count++;
+                    
+                    // Don't show the owner in their own management list
                     if (u.email.toLowerCase() === OWNER_EMAIL.toLowerCase()) return; 
 
                     const div = document.createElement('div');
                     div.className = "user-row";
                     div.innerHTML = `
-                        <span>${u.displayName || u.email.split('@')[0]} <small class="role-badge ${u.role === 'admin' ? 'role-admin' : 'role-member'}">${u.role}</small> ${u.isBanned ? '🚫' : ''}</span>
-                        <div class="user-actions">
-                            <button class="btn-auth" onclick="window.updateRole('${u.uid}', '${u.role === 'admin' ? 'member' : 'admin'}')">${u.role === 'admin' ? 'demote' : 'promote'}</button>
-                            <button class="btn-auth" style="background:#ff4757;color:white" onclick="window.toggleBan('${u.uid}', ${!u.isBanned})">${u.isBanned ? 'unban' : 'ban'}</button>
+                        <div class="user-meta">
+                            <span>${u.displayName} <small class="role-badge role-${u.role}">${u.role}</small> ${u.isBanned ? '🚫' : ''}</span>
+                            <span class="user-email">${u.email}</span>
+                        </div>
+                        <div class="user-actions" style="display:flex; gap:4px;">
+                            <button class="btn-auth" onclick="window.updateRole('${u.uid}', '${u.role === 'admin' ? 'member' : 'admin'}')">
+                                ${u.role === 'admin' ? 'demote' : 'promote'}
+                            </button>
+                            <button class="btn-auth" style="background:#ff4757; color:white;" onclick="window.toggleBan('${u.uid}', ${!u.isBanned})">
+                                ${u.isBanned ? 'unban' : 'ban'}
+                            </button>
                         </div>
                     `;
                     list.appendChild(div);
                 });
-                if (list.innerHTML === "") list.innerHTML = '<p style="font-size:0.7rem;opacity:0.5;">no other users registered yet.</p>';
-            }, (err) => console.error("User observer error:", err));
+                
+                countBadge.innerText = count;
+                if (list.innerHTML === "") list.innerHTML = '<p style="font-size:0.7rem; opacity:0.5;">no other users found.</p>';
+            }, (err) => {
+                console.error("User list error:", err);
+                document.getElementById('user-list').innerHTML = `<p style="color:red; font-size:0.6rem;">error: check firebase rules</p>`;
+            });
         }
 
         window.updateRole = async (uid, newRole) => {
@@ -425,7 +429,7 @@
             await updateDoc(doc(db, "users", uid), { isBanned: banState });
         };
 
-        // Standard logic
+        // Standard countdown & config logic
         onSnapshot(doc(db, "config", "timer"), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
@@ -483,7 +487,7 @@
             await addDoc(collection(db, "broadcasts"), { text: text, sentAt: new Date().toISOString() });
         };
 
-        // UI Helpers
+        // UI Panel Logic
         const panel = document.getElementById("admin-panel");
         const header = document.getElementById("admin-header");
         let isDragging = false;
@@ -515,6 +519,7 @@
             document.getElementById('seconds').innerText = Math.floor((diff % _min) / _sec).toString().padStart(2, '0');
         }, 1000);
 
+        // Particle logic
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
