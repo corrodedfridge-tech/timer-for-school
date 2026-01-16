@@ -42,7 +42,7 @@
             transition: background-color 0.8s ease, color 0.8s ease, filter 0.5s ease;
         }
 
-        /* Interaction Effects */
+        /* --- EFFECTS --- */
         .shake-active { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both infinite; }
         @keyframes shake {
             10%, 90% { transform: translate3d(-1px, 0, 0); }
@@ -51,6 +51,26 @@
             40%, 60% { transform: translate3d(4px, 0, 0); }
         }
         .invert-active { filter: invert(1) hue-rotate(180deg); }
+
+        /* Flashbang Overlay */
+        #flashbang-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: white;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 3s ease-out; /* Smooth fade out default */
+        }
+        #think-fast-img {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
+            display: none;
+            pointer-events: none;
+            max-width: 80%;
+        }
 
         #particle-canvas {
             position: fixed;
@@ -82,11 +102,7 @@
             border: 1px solid rgba(128, 128, 128, 0.1);
             color: var(--text);
         }
-
-        .visitor-notification {
-            background: #2ed573 !important;
-            color: #000 !important;
-        }
+        .visitor-notification { background: #2ed573 !important; color: #000 !important; }
 
         @keyframes fadeInOut {
             0% { opacity: 0; transform: translateY(-10px); }
@@ -135,8 +151,7 @@
         #admin-panel {
             display: none;
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            bottom: 20px; right: 20px;
             background: var(--panel-bg);
             color: var(--text);
             width: 350px;
@@ -164,10 +179,7 @@
             user-select: none;
         }
 
-        #admin-content {
-            padding: 15px;
-            overflow-y: auto;
-        }
+        #admin-content { padding: 15px; overflow-y: auto; }
 
         #admin-panel h3 { 
             margin: 15px 0 8px 0; 
@@ -232,12 +244,9 @@
         
         .auth-controls {
             position: fixed;
-            bottom: 20px;
-            left: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            align-items: flex-start;
+            bottom: 20px; left: 20px;
+            display: flex; flex-direction: column;
+            gap: 8px; align-items: flex-start;
         }
 
         .btn-auth { 
@@ -256,6 +265,7 @@
             font-weight: bold;
         }
         .btn-fun:hover { background: #666; }
+        .btn-fun-danger { background: #ff9f43; color: black; }
         
         #user-info { font-size: 0.7rem; opacity: 1; display: flex; align-items: center; gap: 8px; }
 
@@ -271,27 +281,34 @@
         .role-member { background: rgba(128,128,128,0.3); color: #fff; }
 
         .personal-theme-toggle {
-            font-size: 1.2rem;
-            cursor: pointer;
-            opacity: 0.6;
-            transition: 0.3s;
-            background: none;
-            padding: 0;
+            font-size: 1.2rem; cursor: pointer; opacity: 0.6; transition: 0.3s;
+            background: none; padding: 0;
         }
         .personal-theme-toggle:hover { opacity: 1; transform: scale(1.1); }
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 4px;
-        }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
         .status-online { background: #2ed573; box-shadow: 0 0 5px #2ed573; }
         .status-offline { background: #747d8c; }
+
+        #notif-banner {
+            position: fixed; top: 0; left: 0; width: 100%;
+            background: #ffd700; color: #000;
+            padding: 10px; text-align: center;
+            font-weight: 900; font-size: 0.75rem;
+            z-index: 5000; display: none; cursor: pointer;
+        }
     </style>
 </head>
 <body data-theme="dark">
+
+    <!-- Flashbang Assets -->
+    <div id="flashbang-overlay"></div>
+    <img id="think-fast-img" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/thinkfastchucklenuts.png?raw=true" alt="Think Fast">
+    <audio id="flashbang-sound" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/flashbang-gah-dayum.mp3?raw=true"></audio>
+
+    <div id="notif-banner" onclick="window.requestNotifPermission()">
+        🔔 enable web notifications to get visitor alerts
+    </div>
 
     <canvas id="particle-canvas"></canvas>
     <div id="broadcast-container"></div>
@@ -332,12 +349,13 @@
                 <h3>live broadcast</h3>
                 <input type="text" id="broadcast-input" placeholder="type message...">
                 <button class="btn-broadcast" onclick="window.sendBroadcast()">broadcast live</button>
+                <button class="btn-broadcast" style="background:#ff9f43; margin-top:5px;" onclick="window.triggerGlobalFlashbang()">💣 GLOBAL FLASHBANG 💣</button>
             </div>
 
             <div id="owner-section" style="display: none;">
                 <h3>
                     users 
-                    <button onclick="window.setupUserObserver()" style="background:none; color:inherit; font-size:0.6rem; text-decoration:underline; cursor:pointer;">(refresh list)</button>
+                    <button onclick="window.setupUserObserver()" style="background:none; color:inherit; font-size:0.6rem; text-decoration:underline; cursor:pointer;">(refresh)</button>
                     <span id="user-count-badge" style="font-size: 0.6rem; opacity: 0.5;">0</span>
                 </h3>
                 <div id="user-list">
@@ -350,7 +368,7 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, getDoc, deleteDoc, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -386,6 +404,18 @@
             msg.innerText = text.toLowerCase();
             container.appendChild(msg);
             setTimeout(() => { msg.style.opacity = '0'; setTimeout(() => msg.remove(), 500); }, 4000);
+            if (isVisitor) sendWebNotification("Visitor Alert", text);
+        }
+
+        window.requestNotifPermission = async () => {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') document.getElementById('notif-banner').style.display = 'none';
+        };
+
+        function sendWebNotification(title, body) {
+            if (Notification.permission === 'granted' && document.visibilityState !== 'visible') {
+                new Notification(title, { body: body });
+            }
         }
 
         function showStatus(text, isError = false) {
@@ -409,15 +439,9 @@
             showStatus("personal theme: " + personalTheme);
         };
 
-        // Visitor tracking logic
         const updatePresence = async (uid, isOnline) => {
             if (!uid) return;
-            try {
-                await updateDoc(doc(db, "users", uid), {
-                    isOnline: isOnline,
-                    lastSeen: serverTimestamp()
-                });
-            } catch (e) { console.error("Presence update failed", e); }
+            try { await updateDoc(doc(db, "users", uid), { isOnline: isOnline, lastSeen: serverTimestamp() }); } catch (e) {}
         };
 
         onAuthStateChanged(auth, async (user) => {
@@ -452,28 +476,35 @@
                         lastSeen: serverTimestamp()
                     }, { merge: true });
 
-                    // Update presence on disconnect/tab close
                     window.addEventListener('beforeunload', () => updatePresence(user.uid, false));
 
                     currentUserRole = role;
                     userInfo.innerHTML = `hi, ${user.displayName || userEmail.split('@')[0]} <span class="role-badge role-${role}">${role}</span>`;
                     
-                    if (role === 'admin' || role === 'owner') panel.style.display = "flex";
-                    if (role === 'owner') {
+                    // Show Panel for Admin OR Owner
+                    if (role === 'admin' || role === 'owner') {
+                        panel.style.display = "flex";
+                        // Setup User Observer for both so they can trigger effects
                         ownerSection.style.display = "block";
                         window.setupUserObserver();
-                        
-                        // Owner specific notification: Notify when visitor count increases
+                    }
+
+                    // Extra Owner Stuff
+                    if (role === 'owner') {
+                        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                            document.getElementById('notif-banner').style.display = 'block';
+                        }
                         onSnapshot(collection(db, "users"), (snap) => {
-                            const currentOnline = snap.docs.filter(d => d.data().isOnline && d.id !== user.uid);
+                            const currentOnline = snap.docs.filter(doc => doc.data().isOnline && doc.id !== user.uid);
                             if (currentOnline.length > lastKnownVisitorCount) {
                                 const newVisitor = currentOnline[currentOnline.length - 1].data();
-                                showNotification(`👀 visitor online: ${newVisitor.displayName || 'someone'}`, true);
+                                showNotification(`👀 visitor: ${newVisitor.displayName || 'someone'}`, true);
                             }
                             lastKnownVisitorCount = currentOnline.length;
                         });
                     }
 
+                    // Personal Interaction Listener
                     onSnapshot(doc(db, "interactions", user.uid), (snap) => {
                         if (snap.exists()) {
                             handleInteraction(snap.data().type);
@@ -481,10 +512,18 @@
                         }
                     });
 
-                } catch (err) { 
-                    console.error(err);
-                    showStatus("Auth Error: " + err.message, true);
-                }
+                    // Global Interaction Listener
+                    onSnapshot(doc(db, "interactions", "global"), (snap) => {
+                        if (snap.exists() && snap.data().sentAt) {
+                            // Check if this global event happened recently (last 10 seconds)
+                            const sentTime = snap.data().sentAt.toMillis();
+                            if (Date.now() - sentTime < 10000) {
+                                handleInteraction(snap.data().type);
+                            }
+                        }
+                    });
+
+                } catch (err) { console.error(err); }
             } else {
                 loginBtn.style.display = "block";
                 logoutBtn.style.display = "none";
@@ -504,6 +543,30 @@
                 setTimeout(() => document.body.classList.remove('invert-active'), 5000);
             } else if (type === 'confetti') {
                 confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+            } else if (type === 'flashbang') {
+                const img = document.getElementById('think-fast-img');
+                const snd = document.getElementById('flashbang-sound');
+                const overlay = document.getElementById('flashbang-overlay');
+                
+                // 1. Show Image
+                img.style.display = "block";
+                
+                // 2. Wait 500ms then Flash
+                setTimeout(() => {
+                    img.style.display = "none";
+                    snd.currentTime = 0;
+                    snd.play().catch(e => console.log("Audio prevented"));
+                    
+                    // Flash On
+                    overlay.style.transition = "none"; // Instant on
+                    overlay.style.opacity = "1";
+                    
+                    // 3. Wait 10s then fade out
+                    setTimeout(() => {
+                        overlay.style.transition = "opacity 3s ease-out";
+                        overlay.style.opacity = "0";
+                    }, 10000); // 10 seconds white screen
+                }, 500);
             }
         }
 
@@ -512,15 +575,21 @@
             try {
                 await setDoc(doc(db, "interactions", uid), { type, sentAt: serverTimestamp() });
                 showStatus(`Sent ${type}!`);
-            } catch (e) {
-                showStatus("Blocked: " + e.message, true);
-            }
+            } catch (e) { showStatus("Blocked.", true); }
+        };
+
+        window.triggerGlobalFlashbang = async () => {
+            if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
+            if(!confirm("WARNING: This will flashbang EVERYONE connected. Proceed?")) return;
+            try {
+                await setDoc(doc(db, "interactions", "global"), { type: 'flashbang', sentAt: serverTimestamp() });
+                showStatus("GLOBAL FLASHBANG SENT");
+            } catch (e) { showStatus("Blocked.", true); }
         };
 
         let unsubscribeUsers = null;
         window.setupUserObserver = () => {
             if (unsubscribeUsers) unsubscribeUsers();
-            
             const list = document.getElementById('user-list');
             list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>loading users...</p>";
 
@@ -529,26 +598,20 @@
                 list.innerHTML = "";
                 let count = 0;
 
-                if (snapshot.empty) {
-                    list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>no users in database.</p>";
-                    return;
-                }
-
                 snapshot.forEach(docSnap => {
                     const u = docSnap.data();
                     count++;
-                    
                     if (u.uid === currentUserId) return; 
 
                     const div = document.createElement('div');
                     div.className = "user-row";
                     const statusClass = u.isOnline ? 'status-online' : 'status-offline';
-                    div.innerHTML = `
-                        <div class="user-info-bar">
-                            <div class="user-meta">
-                                <span><span class="status-dot ${statusClass}"></span>${u.displayName || 'Anon'} <small class="role-badge role-${u.role || 'member'}">${u.role || 'member'}</small> ${u.isBanned ? '🚫' : ''}</span>
-                                <span class="user-email">${u.email || 'no email'}</span>
-                            </div>
+                    
+                    // --- ROLE RESTRICTION LOGIC ---
+                    // Only display Auth buttons (Ban/Promote) if YOU are the OWNER
+                    let authButtonsHtml = '';
+                    if (currentUserRole === 'owner') {
+                        authButtonsHtml = `
                             <div style="display:flex; gap:4px;">
                                 <button class="btn-auth" style="background:${u.role==='admin'?'#ff4757':'#00d2ff'}; color:white;" onclick="window.updateRole('${u.uid}','${u.role==='admin'?'member':'admin'}')">
                                     ${u.role==='admin'?'demote':'promote'}
@@ -557,20 +620,30 @@
                                     ${u.isBanned?'unban':'ban'}
                                 </button>
                             </div>
+                        `;
+                    } else {
+                        authButtonsHtml = `<span style="font-size:0.6rem; opacity:0.5;">(admin view)</span>`;
+                    }
+
+                    div.innerHTML = `
+                        <div class="user-info-bar">
+                            <div class="user-meta">
+                                <span><span class="status-dot ${statusClass}"></span>${u.displayName || 'Anon'} <small class="role-badge role-${u.role || 'member'}">${u.role || 'member'}</small></span>
+                                <span class="user-email">${u.email || 'no email'}</span>
+                            </div>
+                            ${authButtonsHtml}
                         </div>
                         <div class="user-controls">
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','shake')" title="Shake Screen">📳</button>
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','invert')" title="Invert Colors">🌈</button>
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','confetti')" title="Party Confetti">🎉</button>
+                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','shake')" title="Shake">📳</button>
+                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','invert')" title="Invert">🌈</button>
+                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','confetti')" title="Confetti">🎉</button>
+                            <button class="btn-fun btn-fun-danger" onclick="window.triggerFun('${u.uid}','flashbang')" title="Flashbang">💣</button>
                         </div>
                     `;
                     list.appendChild(div);
                 });
                 countBadge.innerText = count;
-                if (list.innerHTML === "") list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>no other users logged in.</p>";
-            }, (err) => {
-                showStatus("Firestore Error: " + err.code, true);
-                list.innerHTML = `<p style='color:#ff4757; font-size:0.7rem;'>Error: ${err.message}</p>`;
+                if (list.innerHTML === "") list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>no other users.</p>";
             });
         };
 
