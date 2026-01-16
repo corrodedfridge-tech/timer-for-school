@@ -330,42 +330,44 @@
 
                 const isOwner = user.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
                 
-                // Immediate Auto-Registration/Update
-                const userRef = doc(db, "users", user.uid);
-                const userSnap = await getDoc(userRef);
-                
-                let assignedRole = isOwner ? 'owner' : (userSnap.exists() ? (userSnap.data().role || 'member') : 'member');
-                let isBanned = userSnap.exists() ? (userSnap.data().isBanned || false) : false;
+                try {
+                    const userRef = doc(db, "users", user.uid);
+                    const userSnap = await getDoc(userRef);
+                    
+                    let assignedRole = isOwner ? 'owner' : (userSnap.exists() ? (userSnap.data().role || 'member') : 'member');
+                    let isBanned = userSnap.exists() ? (userSnap.data().isBanned || false) : false;
 
-                if (isBanned) {
-                    alert("Account Banned.");
-                    window.logout();
-                    return;
-                }
+                    if (isBanned) {
+                        alert("Account Banned.");
+                        window.logout();
+                        return;
+                    }
 
-                // Sync profile to database immediately so they show up in the list
-                await setDoc(userRef, {
-                    uid: user.uid,
-                    email: user.email,
-                    displayName: user.displayName || user.email.split('@')[0],
-                    role: assignedRole,
-                    isBanned: isBanned,
-                    lastSeen: new Date().toISOString()
-                }, { merge: true });
+                    // Sync profile to database
+                    await setDoc(userRef, {
+                        uid: user.uid,
+                        email: user.email,
+                        displayName: user.displayName || user.email.split('@')[0],
+                        role: assignedRole,
+                        isBanned: isBanned,
+                        lastSeen: new Date().toISOString()
+                    }, { merge: true });
 
-                currentUserRole = assignedRole;
-                userInfo.innerHTML = `hi, ${user.displayName || user.email.split('@')[0]} <span class="role-badge role-${assignedRole}">${assignedRole}</span>`;
-                
-                // Show panels based on roles
-                if (assignedRole === 'admin' || assignedRole === 'owner') {
-                    panel.style.display = "flex";
-                } else {
-                    panel.style.display = "none";
-                }
+                    currentUserRole = assignedRole;
+                    userInfo.innerHTML = `hi, ${user.displayName || user.email.split('@')[0]} <span class="role-badge role-${assignedRole}">${assignedRole}</span>`;
+                    
+                    if (assignedRole === 'admin' || assignedRole === 'owner') {
+                        panel.style.display = "flex";
+                    } else {
+                        panel.style.display = "none";
+                    }
 
-                if (assignedRole === 'owner') {
-                    ownerSection.style.display = "block";
-                    setupUserObserver();
+                    if (assignedRole === 'owner') {
+                        ownerSection.style.display = "block";
+                        setupUserObserver();
+                    }
+                } catch (err) {
+                    console.error("Auth sync error:", err);
                 }
 
             } else {
@@ -388,8 +390,6 @@
                 snapshot.forEach(docSnap => {
                     const u = docSnap.data();
                     count++;
-                    
-                    // Don't show the owner in their own management list
                     if (u.email.toLowerCase() === OWNER_EMAIL.toLowerCase()) return; 
 
                     const div = document.createElement('div');
@@ -415,21 +415,24 @@
                 if (list.innerHTML === "") list.innerHTML = '<p style="font-size:0.7rem; opacity:0.5;">no other users found.</p>';
             }, (err) => {
                 console.error("User list error:", err);
-                document.getElementById('user-list').innerHTML = `<p style="color:red; font-size:0.6rem;">error: check firebase rules</p>`;
+                document.getElementById('user-list').innerHTML = `<p style="color:red; font-size:0.6rem;">Error: Update Firestore Rules</p>`;
             });
         }
 
         window.updateRole = async (uid, newRole) => {
             if (currentUserRole !== 'owner') return;
-            await updateDoc(doc(db, "users", uid), { role: newRole });
+            try {
+                await updateDoc(doc(db, "users", uid), { role: newRole });
+            } catch (e) { console.error("Role update failed:", e); }
         };
 
         window.toggleBan = async (uid, banState) => {
             if (currentUserRole !== 'owner') return;
-            await updateDoc(doc(db, "users", uid), { isBanned: banState });
+            try {
+                await updateDoc(doc(db, "users", uid), { isBanned: banState });
+            } catch (e) { console.error("Ban failed:", e); }
         };
 
-        // Standard countdown & config logic
         onSnapshot(doc(db, "config", "timer"), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
@@ -467,7 +470,9 @@
         window.toggleGlobalTheme = async () => {
             if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
             const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            await updateDoc(doc(db, "config", "timer"), { theme: nextTheme });
+            try {
+                await setDoc(doc(db, "config", "timer"), { theme: nextTheme }, { merge: true });
+            } catch (e) { console.error("Theme toggle failed:", e); }
         };
 
         window.updateTimer = async () => {
@@ -475,7 +480,9 @@
             const dateVal = document.getElementById('date-input').value;
             const nameVal = document.getElementById('name-input').value;
             if (!dateVal || !nameVal) return;
-            await updateDoc(doc(db, "config", "timer"), { targetTime: dateVal, eventName: nameVal.toLowerCase() });
+            try {
+                await setDoc(doc(db, "config", "timer"), { targetTime: dateVal, eventName: nameVal.toLowerCase() }, { merge: true });
+            } catch (e) { console.error("Update timer failed:", e); }
         };
 
         window.sendBroadcast = async () => {
@@ -484,7 +491,9 @@
             const text = input.value;
             if (!text) return;
             input.value = "";
-            await addDoc(collection(db, "broadcasts"), { text: text, sentAt: new Date().toISOString() });
+            try {
+                await addDoc(collection(db, "broadcasts"), { text: text, sentAt: new Date().toISOString() });
+            } catch (e) { console.error("Broadcast failed:", e); }
         };
 
         // UI Panel Logic
