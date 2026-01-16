@@ -83,6 +83,11 @@
             color: var(--text);
         }
 
+        .visitor-notification {
+            background: #2ed573 !important;
+            color: #000 !important;
+        }
+
         @keyframes fadeInOut {
             0% { opacity: 0; transform: translateY(-10px); }
             10% { opacity: 1; transform: translateY(0); }
@@ -274,6 +279,16 @@
             padding: 0;
         }
         .personal-theme-toggle:hover { opacity: 1; transform: scale(1.1); }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .status-online { background: #2ed573; box-shadow: 0 0 5px #2ed573; }
+        .status-offline { background: #747d8c; }
     </style>
 </head>
 <body data-theme="dark">
@@ -292,7 +307,7 @@
     </div>
 
     <div class="auth-controls">
-        <span id="user-info"></span>
+        <div id="user-info"></div>
         <button id="login-btn" class="btn-auth" onclick="window.login()">login / register</button>
         <button id="logout-btn" class="btn-auth" style="display:none" onclick="window.logout()">logout</button>
         <button class="personal-theme-toggle" onclick="window.togglePersonalTheme()">🌓</button>
@@ -335,7 +350,7 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, getDoc, deleteDoc, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -359,9 +374,19 @@
         let currentUserRole = 'member';
         let currentUserId = null;
         const pageLoadTime = Date.now();
+        let lastKnownVisitorCount = 0;
 
         window.login = () => signInWithPopup(auth, provider).catch(e => showStatus("Login Error: " + e.message, true));
         window.logout = () => signOut(auth);
+
+        function showNotification(text, isVisitor = false) {
+            const container = document.getElementById('broadcast-container');
+            const msg = document.createElement('div');
+            msg.className = `broadcast-msg ${isVisitor ? 'visitor-notification' : ''}`;
+            msg.innerText = text.toLowerCase();
+            container.appendChild(msg);
+            setTimeout(() => { msg.style.opacity = '0'; setTimeout(() => msg.remove(), 500); }, 4000);
+        }
 
         function showStatus(text, isError = false) {
             const el = document.getElementById('status-display');
@@ -382,6 +407,17 @@
             localStorage.setItem('personal-theme', personalTheme);
             applyThemes();
             showStatus("personal theme: " + personalTheme);
+        };
+
+        // Visitor tracking logic
+        const updatePresence = async (uid, isOnline) => {
+            if (!uid) return;
+            try {
+                await updateDoc(doc(db, "users", uid), {
+                    isOnline: isOnline,
+                    lastSeen: serverTimestamp()
+                });
+            } catch (e) { console.error("Presence update failed", e); }
         };
 
         onAuthStateChanged(auth, async (user) => {
@@ -412,8 +448,12 @@
                         email: userEmail,
                         displayName: user.displayName || userEmail.split('@')[0],
                         role: role,
+                        isOnline: true,
                         lastSeen: serverTimestamp()
                     }, { merge: true });
+
+                    // Update presence on disconnect/tab close
+                    window.addEventListener('beforeunload', () => updatePresence(user.uid, false));
 
                     currentUserRole = role;
                     userInfo.innerHTML = `hi, ${user.displayName || userEmail.split('@')[0]} <span class="role-badge role-${role}">${role}</span>`;
@@ -422,6 +462,16 @@
                     if (role === 'owner') {
                         ownerSection.style.display = "block";
                         window.setupUserObserver();
+                        
+                        // Owner specific notification: Notify when visitor count increases
+                        onSnapshot(collection(db, "users"), (snap) => {
+                            const currentOnline = snap.docs.filter(d => d.data().isOnline && d.id !== user.uid);
+                            if (currentOnline.length > lastKnownVisitorCount) {
+                                const newVisitor = currentOnline[currentOnline.length - 1].data();
+                                showNotification(`👀 visitor online: ${newVisitor.displayName || 'someone'}`, true);
+                            }
+                            lastKnownVisitorCount = currentOnline.length;
+                        });
                     }
 
                     onSnapshot(doc(db, "interactions", user.uid), (snap) => {
@@ -488,15 +538,15 @@
                     const u = docSnap.data();
                     count++;
                     
-                    // Don't list yourself in the management tab
                     if (u.uid === currentUserId) return; 
 
                     const div = document.createElement('div');
                     div.className = "user-row";
+                    const statusClass = u.isOnline ? 'status-online' : 'status-offline';
                     div.innerHTML = `
                         <div class="user-info-bar">
                             <div class="user-meta">
-                                <span>${u.displayName || 'Anon'} <small class="role-badge role-${u.role || 'member'}">${u.role || 'member'}</small> ${u.isBanned ? '🚫' : ''}</span>
+                                <span><span class="status-dot ${statusClass}"></span>${u.displayName || 'Anon'} <small class="role-badge role-${u.role || 'member'}">${u.role || 'member'}</small> ${u.isBanned ? '🚫' : ''}</span>
                                 <span class="user-email">${u.email || 'no email'}</span>
                             </div>
                             <div style="display:flex; gap:4px;">
@@ -547,12 +597,7 @@
         onSnapshot(collection(db, "broadcasts"), (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added" && new Date(change.doc.data().sentAt).getTime() > pageLoadTime) {
-                    const container = document.getElementById('broadcast-container');
-                    const msg = document.createElement('div');
-                    msg.className = 'broadcast-msg';
-                    msg.innerText = change.doc.data().text.toLowerCase();
-                    container.appendChild(msg);
-                    setTimeout(() => { msg.style.opacity = '0'; setTimeout(() => msg.remove(), 500); }, 3500);
+                    showNotification(change.doc.data().text);
                 }
             });
         });
