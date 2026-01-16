@@ -160,13 +160,24 @@
             display: flex;
             justify-content: space-between;
         }
+
+        .status-msg {
+            font-size: 0.65rem;
+            padding: 8px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            display: none;
+            font-weight: bold;
+        }
+        .status-error { background: #ff4757; color: white; }
+        .status-success { background: #2ed573; color: white; }
         
         .user-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-size: 0.7rem;
-            padding: 8px 0;
+            padding: 10px 0;
             border-bottom: 1px solid rgba(128,128,128,0.1);
         }
 
@@ -264,6 +275,8 @@
             <button class="btn-theme" onclick="window.toggleGlobalTheme()">global theme</button>
         </div>
         <div id="admin-content">
+            <div id="status-display" class="status-msg"></div>
+
             <div id="timer-section">
                 <h3>event config</h3>
                 <input type="text" id="name-input" placeholder="event name">
@@ -283,7 +296,7 @@
                     <span id="user-count-badge">0</span>
                 </h3>
                 <div id="user-list">
-                    <p style="font-size: 0.7rem; opacity: 0.5;">loading users...</p>
+                    <p style="font-size: 0.7rem; opacity: 0.5;">searching for users...</p>
                 </div>
             </div>
         </div>
@@ -291,7 +304,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, getDoc, query } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -314,8 +327,16 @@
         let currentUserRole = 'member';
         const pageLoadTime = Date.now();
 
-        window.login = () => signInWithPopup(auth, provider);
+        window.login = () => signInWithPopup(auth, provider).catch(e => showStatus("Login Error: " + e.message, true));
         window.logout = () => signOut(auth);
+
+        function showStatus(text, isError = false) {
+            const el = document.getElementById('status-display');
+            el.innerText = text;
+            el.className = `status-msg ${isError ? 'status-error' : 'status-success'}`;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 6000);
+        }
 
         onAuthStateChanged(auth, async (user) => {
             const loginBtn = document.getElementById('login-btn');
@@ -338,12 +359,12 @@
                     let isBanned = userSnap.exists() ? (userSnap.data().isBanned || false) : false;
 
                     if (isBanned) {
-                        alert("Account Banned.");
+                        alert("Your account is banned.");
                         window.logout();
                         return;
                     }
 
-                    // Sync profile to database
+                    // Write user profile to DB
                     await setDoc(userRef, {
                         uid: user.uid,
                         email: user.email,
@@ -367,7 +388,8 @@
                         setupUserObserver();
                     }
                 } catch (err) {
-                    console.error("Auth sync error:", err);
+                    console.error("Critical Auth Error:", err);
+                    showStatus("Error syncing profile. Check Firestore Rules.", true);
                 }
 
             } else {
@@ -399,11 +421,11 @@
                             <span>${u.displayName} <small class="role-badge role-${u.role}">${u.role}</small> ${u.isBanned ? '🚫' : ''}</span>
                             <span class="user-email">${u.email}</span>
                         </div>
-                        <div class="user-actions" style="display:flex; gap:4px;">
-                            <button class="btn-auth" onclick="window.updateRole('${u.uid}', '${u.role === 'admin' ? 'member' : 'admin'}')">
+                        <div class="user-actions" style="display:flex; gap:6px;">
+                            <button class="btn-auth" style="background:${u.role === 'admin' ? '#ff4757' : '#00d2ff'}; color:white;" onclick="window.updateRole('${u.uid}', '${u.role === 'admin' ? 'member' : 'admin'}')">
                                 ${u.role === 'admin' ? 'demote' : 'promote'}
                             </button>
-                            <button class="btn-auth" style="background:#ff4757; color:white;" onclick="window.toggleBan('${u.uid}', ${!u.isBanned})">
+                            <button class="btn-auth" style="background:#000; color:white;" onclick="window.toggleBan('${u.uid}', ${!u.isBanned})">
                                 ${u.isBanned ? 'unban' : 'ban'}
                             </button>
                         </div>
@@ -412,10 +434,9 @@
                 });
                 
                 countBadge.innerText = count;
-                if (list.innerHTML === "") list.innerHTML = '<p style="font-size:0.7rem; opacity:0.5;">no other users found.</p>';
+                if (list.innerHTML === "") list.innerHTML = '<p style="font-size:0.7rem; opacity:0.5;">no other users signed in yet.</p>';
             }, (err) => {
-                console.error("User list error:", err);
-                document.getElementById('user-list').innerHTML = `<p style="color:red; font-size:0.6rem;">Error: Update Firestore Rules</p>`;
+                showStatus("User list blocked. Paste the new Rules in Firebase Console.", true);
             });
         }
 
@@ -423,16 +444,23 @@
             if (currentUserRole !== 'owner') return;
             try {
                 await updateDoc(doc(db, "users", uid), { role: newRole });
-            } catch (e) { console.error("Role update failed:", e); }
+                showStatus(`Success: ${newRole} assigned.`);
+            } catch (e) { 
+                showStatus("Failed: Firebase Rules blocked the change.", true);
+            }
         };
 
         window.toggleBan = async (uid, banState) => {
             if (currentUserRole !== 'owner') return;
             try {
                 await updateDoc(doc(db, "users", uid), { isBanned: banState });
-            } catch (e) { console.error("Ban failed:", e); }
+                showStatus(banState ? "User is now banned." : "User unbanned.");
+            } catch (e) { 
+                showStatus("Failed: Firebase Rules blocked the change.", true);
+            }
         };
 
+        // Static Observers
         onSnapshot(doc(db, "config", "timer"), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
@@ -472,7 +500,7 @@
             const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
             try {
                 await setDoc(doc(db, "config", "timer"), { theme: nextTheme }, { merge: true });
-            } catch (e) { console.error("Theme toggle failed:", e); }
+            } catch (e) { showStatus("Failed to change theme globally.", true); }
         };
 
         window.updateTimer = async () => {
@@ -482,7 +510,8 @@
             if (!dateVal || !nameVal) return;
             try {
                 await setDoc(doc(db, "config", "timer"), { targetTime: dateVal, eventName: nameVal.toLowerCase() }, { merge: true });
-            } catch (e) { console.error("Update timer failed:", e); }
+                showStatus("Timer updated globally.");
+            } catch (e) { showStatus("Failed to update timer globally.", true); }
         };
 
         window.sendBroadcast = async () => {
@@ -493,10 +522,10 @@
             input.value = "";
             try {
                 await addDoc(collection(db, "broadcasts"), { text: text, sentAt: new Date().toISOString() });
-            } catch (e) { console.error("Broadcast failed:", e); }
+            } catch (e) { showStatus("Failed to send broadcast.", true); }
         };
 
-        // UI Panel Logic
+        // Draggable Logic
         const panel = document.getElementById("admin-panel");
         const header = document.getElementById("admin-header");
         let isDragging = false;
@@ -514,6 +543,7 @@
         };
         document.onmouseup = () => isDragging = false;
 
+        // Countdown Engine
         setInterval(() => {
             if (!targetTime) return;
             const diff = targetTime - new Date().getTime();
@@ -528,7 +558,7 @@
             document.getElementById('seconds').innerText = Math.floor((diff % _min) / _sec).toString().padStart(2, '0');
         }, 1000);
 
-        // Particle logic
+        // Particle System
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
