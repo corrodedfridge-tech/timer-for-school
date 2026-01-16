@@ -289,9 +289,29 @@
         }
         .status-online { background: #2ed573; box-shadow: 0 0 5px #2ed573; }
         .status-offline { background: #747d8c; }
+
+        #notif-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: #ffd700;
+            color: #000;
+            padding: 10px;
+            text-align: center;
+            font-weight: 900;
+            font-size: 0.75rem;
+            z-index: 5000;
+            display: none;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body data-theme="dark">
+
+    <div id="notif-banner" onclick="window.requestNotifPermission()">
+        🔔 enable web notifications to get visitor alerts anywhere
+    </div>
 
     <canvas id="particle-canvas"></canvas>
     <div id="broadcast-container"></div>
@@ -350,7 +370,9 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, getDoc, deleteDoc, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        // Correction: Importing from correct modules
+        import { getFirestore as fs, doc as d, onSnapshot as os, setDoc as sd, collection as cl, addDoc as ad, updateDoc as ud, getDoc as gd, deleteDoc as dd, serverTimestamp as st } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -363,7 +385,7 @@
         };
 
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        const db = fs(app);
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
@@ -379,6 +401,21 @@
         window.login = () => signInWithPopup(auth, provider).catch(e => showStatus("Login Error: " + e.message, true));
         window.logout = () => signOut(auth);
 
+        // Web Notification Logic
+        window.requestNotifPermission = async () => {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                document.getElementById('notif-banner').style.display = 'none';
+                new Notification("Notifications Enabled!", { body: "You will now receive alerts for new visitors." });
+            }
+        };
+
+        function sendWebNotification(title, body) {
+            if (Notification.permission === 'granted' && document.visibilityState !== 'visible') {
+                new Notification(title, { body: body, icon: 'https://cdn-icons-png.flaticon.com/512/1157/1157000.png' });
+            }
+        }
+
         function showNotification(text, isVisitor = false) {
             const container = document.getElementById('broadcast-container');
             const msg = document.createElement('div');
@@ -386,6 +423,10 @@
             msg.innerText = text.toLowerCase();
             container.appendChild(msg);
             setTimeout(() => { msg.style.opacity = '0'; setTimeout(() => msg.remove(), 500); }, 4000);
+            
+            if (isVisitor) {
+                sendWebNotification("New Visitor!", text);
+            }
         }
 
         function showStatus(text, isError = false) {
@@ -409,13 +450,12 @@
             showStatus("personal theme: " + personalTheme);
         };
 
-        // Visitor tracking logic
         const updatePresence = async (uid, isOnline) => {
             if (!uid) return;
             try {
-                await updateDoc(doc(db, "users", uid), {
+                await ud(d(db, "users", uid), {
                     isOnline: isOnline,
-                    lastSeen: serverTimestamp()
+                    lastSeen: st()
                 });
             } catch (e) { console.error("Presence update failed", e); }
         };
@@ -435,24 +475,23 @@
                 const isOwner = userEmail === OWNER_EMAIL;
                 
                 try {
-                    const userRef = doc(db, "users", user.uid);
-                    const userSnap = await getDoc(userRef);
+                    const userRef = d(db, "users", user.uid);
+                    const userSnap = await gd(userRef);
                     let role = isOwner ? 'owner' : (userSnap.exists() ? (userSnap.data().role || 'member') : 'member');
                     
                     if (userSnap.exists() && userSnap.data().isBanned) {
                         alert("Banned."); window.logout(); return;
                     }
 
-                    await setDoc(userRef, {
+                    await sd(userRef, {
                         uid: user.uid,
                         email: userEmail,
                         displayName: user.displayName || userEmail.split('@')[0],
                         role: role,
                         isOnline: true,
-                        lastSeen: serverTimestamp()
+                        lastSeen: st()
                     }, { merge: true });
 
-                    // Update presence on disconnect/tab close
                     window.addEventListener('beforeunload', () => updatePresence(user.uid, false));
 
                     currentUserRole = role;
@@ -463,9 +502,14 @@
                         ownerSection.style.display = "block";
                         window.setupUserObserver();
                         
-                        // Owner specific notification: Notify when visitor count increases
-                        onSnapshot(collection(db, "users"), (snap) => {
-                            const currentOnline = snap.docs.filter(d => d.data().isOnline && d.id !== user.uid);
+                        // Check notification permission
+                        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                            document.getElementById('notif-banner').style.display = 'block';
+                        }
+                        
+                        // Monitor visitors
+                        os(cl(db, "users"), (snap) => {
+                            const currentOnline = snap.docs.filter(doc => doc.data().isOnline && doc.id !== user.uid);
                             if (currentOnline.length > lastKnownVisitorCount) {
                                 const newVisitor = currentOnline[currentOnline.length - 1].data();
                                 showNotification(`👀 visitor online: ${newVisitor.displayName || 'someone'}`, true);
@@ -474,10 +518,10 @@
                         });
                     }
 
-                    onSnapshot(doc(db, "interactions", user.uid), (snap) => {
+                    os(d(db, "interactions", user.uid), (snap) => {
                         if (snap.exists()) {
                             handleInteraction(snap.data().type);
-                            setTimeout(() => deleteDoc(doc(db, "interactions", user.uid)), 1500);
+                            setTimeout(() => dd(d(db, "interactions", user.uid)), 1500);
                         }
                     });
 
@@ -510,7 +554,7 @@
         window.triggerFun = async (uid, type) => {
             if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
             try {
-                await setDoc(doc(db, "interactions", uid), { type, sentAt: serverTimestamp() });
+                await sd(d(db, "interactions", uid), { type, sentAt: st() });
                 showStatus(`Sent ${type}!`);
             } catch (e) {
                 showStatus("Blocked: " + e.message, true);
@@ -524,20 +568,14 @@
             const list = document.getElementById('user-list');
             list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>loading users...</p>";
 
-            unsubscribeUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+            unsubscribeUsers = os(cl(db, "users"), (snapshot) => {
                 const countBadge = document.getElementById('user-count-badge');
                 list.innerHTML = "";
                 let count = 0;
 
-                if (snapshot.empty) {
-                    list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>no users in database.</p>";
-                    return;
-                }
-
                 snapshot.forEach(docSnap => {
                     const u = docSnap.data();
                     count++;
-                    
                     if (u.uid === currentUserId) return; 
 
                     const div = document.createElement('div');
@@ -576,15 +614,15 @@
 
         window.updateRole = async (uid, newRole) => {
             if (currentUserRole !== 'owner') return;
-            await updateDoc(doc(db, "users", uid), { role: newRole }).catch(e => showStatus("Failed: " + e.message, true));
+            await ud(d(db, "users", uid), { role: newRole }).catch(e => showStatus("Failed: " + e.message, true));
         };
 
         window.toggleBan = async (uid, banState) => {
             if (currentUserRole !== 'owner') return;
-            await updateDoc(doc(db, "users", uid), { isBanned: banState }).catch(e => showStatus("Failed: " + e.message, true));
+            await ud(d(db, "users", uid), { isBanned: banState }).catch(e => showStatus("Failed: " + e.message, true));
         };
 
-        onSnapshot(doc(db, "config", "timer"), (snap) => {
+        os(d(db, "config", "timer"), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
                 targetTime = new Date(data.targetTime).getTime();
@@ -594,7 +632,7 @@
             }
         });
 
-        onSnapshot(collection(db, "broadcasts"), (snapshot) => {
+        os(cl(db, "broadcasts"), (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added" && new Date(change.doc.data().sentAt).getTime() > pageLoadTime) {
                     showNotification(change.doc.data().text);
@@ -605,14 +643,14 @@
         window.toggleGlobalTheme = async () => {
             if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
             const next = globalTheme === 'dark' ? 'light' : 'dark';
-            await setDoc(doc(db, "config", "timer"), { theme: next }, { merge: true });
+            await sd(d(db, "config", "timer"), { theme: next }, { merge: true });
         };
 
         window.updateTimer = async () => {
             const dateVal = document.getElementById('date-input').value;
             const nameVal = document.getElementById('name-input').value;
             if (!dateVal || !nameVal) return;
-            await setDoc(doc(db, "config", "timer"), { targetTime: dateVal, eventName: nameVal.toLowerCase() }, { merge: true });
+            await sd(d(db, "config", "timer"), { targetTime: dateVal, eventName: nameVal.toLowerCase() }, { merge: true });
             showStatus("Config updated.");
         };
 
@@ -621,7 +659,7 @@
             const text = input.value;
             if (!text) return;
             input.value = "";
-            await addDoc(collection(db, "broadcasts"), { text, sentAt: new Date().toISOString() });
+            await ad(cl(db, "broadcasts"), { text, sentAt: new Date().toISOString() });
         };
 
         const panel = document.getElementById("admin-panel");
