@@ -127,7 +127,6 @@
             opacity: 0.5;
         }
 
-        /* Admin/Management Panel */
         #admin-panel {
             display: none;
             position: fixed;
@@ -323,7 +322,7 @@
             <div id="owner-section" style="display: none;">
                 <h3>
                     users 
-                    <button onclick="window.setupUserObserver()" style="background:none; color:inherit; font-size:0.6rem; text-decoration:underline;">(refresh)</button>
+                    <button onclick="window.setupUserObserver()" style="background:none; color:inherit; font-size:0.6rem; text-decoration:underline; cursor:pointer;">(refresh list)</button>
                     <span id="user-count-badge" style="font-size: 0.6rem; opacity: 0.5;">0</span>
                 </h3>
                 <div id="user-list">
@@ -358,6 +357,7 @@
         let globalTheme = 'dark';
         let personalTheme = localStorage.getItem('personal-theme') || null;
         let currentUserRole = 'member';
+        let currentUserId = null;
         const pageLoadTime = Date.now();
 
         window.login = () => signInWithPopup(auth, provider).catch(e => showStatus("Login Error: " + e.message, true));
@@ -392,6 +392,7 @@
             const ownerSection = document.getElementById('owner-section');
 
             if (user) {
+                currentUserId = user.uid;
                 loginBtn.style.display = "none";
                 logoutBtn.style.display = "block";
                 const userEmail = user.email.toLowerCase();
@@ -430,13 +431,17 @@
                         }
                     });
 
-                } catch (err) { console.error(err); }
+                } catch (err) { 
+                    console.error(err);
+                    showStatus("Auth Error: " + err.message, true);
+                }
             } else {
                 loginBtn.style.display = "block";
                 logoutBtn.style.display = "none";
                 userInfo.innerText = "";
                 panel.style.display = "none";
                 currentUserRole = 'member';
+                currentUserId = null;
             }
         });
 
@@ -454,29 +459,45 @@
 
         window.triggerFun = async (uid, type) => {
             if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
-            await setDoc(doc(db, "interactions", uid), { type, sentAt: serverTimestamp() })
-                .then(() => showStatus(`Sent ${type}!`))
-                .catch(e => showStatus("Interaction blocked.", true));
+            try {
+                await setDoc(doc(db, "interactions", uid), { type, sentAt: serverTimestamp() });
+                showStatus(`Sent ${type}!`);
+            } catch (e) {
+                showStatus("Blocked: " + e.message, true);
+            }
         };
 
+        let unsubscribeUsers = null;
         window.setupUserObserver = () => {
-            onSnapshot(collection(db, "users"), (snapshot) => {
-                const list = document.getElementById('user-list');
+            if (unsubscribeUsers) unsubscribeUsers();
+            
+            const list = document.getElementById('user-list');
+            list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>loading users...</p>";
+
+            unsubscribeUsers = onSnapshot(collection(db, "users"), (snapshot) => {
                 const countBadge = document.getElementById('user-count-badge');
                 list.innerHTML = "";
                 let count = 0;
+
+                if (snapshot.empty) {
+                    list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>no users in database.</p>";
+                    return;
+                }
+
                 snapshot.forEach(docSnap => {
                     const u = docSnap.data();
                     count++;
-                    if (u.email.toLowerCase() === OWNER_EMAIL) return; 
+                    
+                    // Don't list yourself in the management tab
+                    if (u.uid === currentUserId) return; 
 
                     const div = document.createElement('div');
                     div.className = "user-row";
                     div.innerHTML = `
                         <div class="user-info-bar">
                             <div class="user-meta">
-                                <span>${u.displayName} <small class="role-badge role-${u.role}">${u.role}</small> ${u.isBanned ? '🚫' : ''}</span>
-                                <span class="user-email">${u.email}</span>
+                                <span>${u.displayName || 'Anon'} <small class="role-badge role-${u.role || 'member'}">${u.role || 'member'}</small> ${u.isBanned ? '🚫' : ''}</span>
+                                <span class="user-email">${u.email || 'no email'}</span>
                             </div>
                             <div style="display:flex; gap:4px;">
                                 <button class="btn-auth" style="background:${u.role==='admin'?'#ff4757':'#00d2ff'}; color:white;" onclick="window.updateRole('${u.uid}','${u.role==='admin'?'member':'admin'}')">
@@ -488,28 +509,29 @@
                             </div>
                         </div>
                         <div class="user-controls">
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','shake')">📳</button>
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','invert')">🌈</button>
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','confetti')">🎉</button>
+                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','shake')" title="Shake Screen">📳</button>
+                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','invert')" title="Invert Colors">🌈</button>
+                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','confetti')" title="Party Confetti">🎉</button>
                         </div>
                     `;
                     list.appendChild(div);
                 });
                 countBadge.innerText = count;
-                if(list.innerHTML === "") list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>no other users found.</p>";
+                if (list.innerHTML === "") list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>no other users logged in.</p>";
             }, (err) => {
-                showStatus("Error loading users: " + err.message, true);
+                showStatus("Firestore Error: " + err.code, true);
+                list.innerHTML = `<p style='color:#ff4757; font-size:0.7rem;'>Error: ${err.message}</p>`;
             });
         };
 
         window.updateRole = async (uid, newRole) => {
             if (currentUserRole !== 'owner') return;
-            await updateDoc(doc(db, "users", uid), { role: newRole }).catch(e => showStatus("Blocked.", true));
+            await updateDoc(doc(db, "users", uid), { role: newRole }).catch(e => showStatus("Failed: " + e.message, true));
         };
 
         window.toggleBan = async (uid, banState) => {
             if (currentUserRole !== 'owner') return;
-            await updateDoc(doc(db, "users", uid), { isBanned: banState }).catch(e => showStatus("Blocked.", true));
+            await updateDoc(doc(db, "users", uid), { isBanned: banState }).catch(e => showStatus("Failed: " + e.message, true));
         };
 
         onSnapshot(doc(db, "config", "timer"), (snap) => {
