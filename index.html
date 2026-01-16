@@ -152,21 +152,14 @@
         }
 
         #admin-panel h3 { margin: 15px 0 8px 0; font-size: 0.85rem; font-weight: 900; border-bottom: 1px solid rgba(128,128,128,0.2); padding-bottom: 4px; }
-        #admin-panel h3:first-child { margin-top: 0; }
-
+        
         .user-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-size: 0.75rem;
-            padding: 6px 0;
+            padding: 8px 0;
             border-bottom: 1px solid rgba(128,128,128,0.1);
-        }
-
-        .user-actions button {
-            font-size: 0.6rem;
-            padding: 2px 4px;
-            margin-left: 2px;
         }
 
         input {
@@ -200,8 +193,9 @@
             bottom: 20px;
             left: 20px;
             display: flex;
-            gap: 10px;
-            align-items: center;
+            flex-direction: column;
+            gap: 5px;
+            align-items: flex-start;
         }
 
         .btn-auth { 
@@ -212,18 +206,26 @@
             border: 1px solid rgba(128,128,128,0.2);
         }
         
-        #user-info { font-size: 0.7rem; opacity: 0.8; display: flex; align-items: center; gap: 5px; }
+        #user-info { font-size: 0.7rem; opacity: 0.9; display: flex; align-items: center; gap: 5px; }
 
         .role-badge {
             font-size: 0.6rem;
             padding: 2px 5px;
             border-radius: 4px;
-            background: rgba(128, 128, 128, 0.3);
             font-weight: 900;
             text-transform: uppercase;
         }
         .role-owner { background: #ffd700; color: #000; }
         .role-admin { background: #00d2ff; color: #000; }
+        .role-member { background: rgba(128,128,128,0.5); color: #fff; }
+
+        .force-repair {
+            font-size: 0.55rem;
+            color: #666;
+            text-decoration: underline;
+            background: none;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body data-theme="dark">
@@ -244,10 +246,13 @@
     <div class="auth-controls">
         <span id="user-info"></span>
         <button id="login-btn" class="btn-auth" onclick="window.login()">login / register</button>
-        <button id="logout-btn" class="btn-auth" style="display:none" onclick="window.logout()">logout</button>
+        <div style="display: flex; gap: 5px;">
+            <button id="logout-btn" class="btn-auth" style="display:none" onclick="window.logout()">logout</button>
+            <button id="repair-btn" class="force-repair" style="display:none" onclick="window.forceOwnerCheck()">fix owner role</button>
+        </div>
     </div>
 
-    <div id="admin-panel" style="display: none;">
+    <div id="admin-panel">
         <div id="admin-header">
             <span>management panel</span>
             <button class="btn-theme" onclick="window.toggleGlobalTheme()">global theme</button>
@@ -269,7 +274,7 @@
             <div id="owner-section" style="display: none;">
                 <h3>user management</h3>
                 <div id="user-list">
-                    <!-- Users populated here -->
+                    <p style="font-size: 0.7rem; opacity: 0.5;">loading users...</p>
                 </div>
             </div>
         </div>
@@ -300,13 +305,30 @@
         let currentUserRole = 'member';
         const pageLoadTime = Date.now();
 
-        // --- Auth Logic ---
-        window.login = () => signInWithPopup(auth, provider);
+        window.login = () => signInWithPopup(auth, provider).catch(e => console.error("Login failed:", e));
         window.logout = () => signOut(auth);
+
+        // This function forces the database to update your role if the automatic check fails
+        window.forceOwnerCheck = async () => {
+            const user = auth.currentUser;
+            if (!user) return;
+            if (user.email.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
+                console.log("Forcing Owner Role Sync...");
+                await setDoc(doc(db, "users", user.uid), {
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: user.displayName,
+                    role: 'owner',
+                    isBanned: false
+                }, { merge: true });
+                window.location.reload(); // Reload to refresh permissions
+            }
+        };
 
         onAuthStateChanged(auth, async (user) => {
             const loginBtn = document.getElementById('login-btn');
             const logoutBtn = document.getElementById('logout-btn');
+            const repairBtn = document.getElementById('repair-btn');
             const userInfo = document.getElementById('user-info');
             const panel = document.getElementById('admin-panel');
             const ownerSection = document.getElementById('owner-section');
@@ -314,18 +336,16 @@
             if (user) {
                 loginBtn.style.display = "none";
                 logoutBtn.style.display = "block";
+                repairBtn.style.display = user.email.toLowerCase() === OWNER_EMAIL.toLowerCase() ? "block" : "none";
 
-                // Ensure the OWNER_EMAIL is handled correctly regardless of case
-                const isOwner = user.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
-                
-                // Register/Check user in Firestore
+                // Check Firestore for profile
                 const userRef = doc(db, "users", user.uid);
-                const userSnap = await getDoc(userRef);
+                let userSnap = await getDoc(userRef);
                 
                 let role = 'member';
                 let isBanned = false;
 
-                if (isOwner) {
+                if (user.email.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
                     role = 'owner';
                 } else if (userSnap.exists()) {
                     role = userSnap.data().role || 'member';
@@ -333,34 +353,29 @@
                 }
 
                 if (isBanned) {
-                    alert("Your account has been banned.");
+                    alert("Account Banned.");
                     window.logout();
                     return;
                 }
 
-                // Force update role if they are the owner email
-                await setDoc(userRef, {
-                    uid: user.uid,
-                    email: user.email,
-                    displayName: user.displayName,
-                    role: role,
-                    isBanned: isBanned,
-                    lastSeen: new Date().toISOString()
-                }, { merge: true });
-
-                currentUserRole = role;
-
-                // Update UI badge
-                userInfo.innerHTML = `hi, ${user.displayName || user.email.split('@')[0]} <span class="role-badge role-${role}">${role}</span>`;
-                
-                // Show panel for Admin or Owner
-                if (role === 'admin' || role === 'owner') {
-                    panel.style.display = "flex";
-                } else {
-                    panel.style.display = "none";
+                // Initial creation if needed
+                if (!userSnap.exists() || (role === 'owner' && userSnap.data().role !== 'owner')) {
+                    await setDoc(userRef, {
+                        uid: user.uid,
+                        email: user.email,
+                        displayName: user.displayName || "Unknown",
+                        role: role,
+                        isBanned: false,
+                        lastSeen: new Date().toISOString()
+                    }, { merge: true });
                 }
 
-                // Show user management only for Owner
+                currentUserRole = role;
+                userInfo.innerHTML = `hi, ${user.displayName || user.email.split('@')[0]} <span class="role-badge role-${role}">${role}</span>`;
+                
+                if (role === 'admin' || role === 'owner') {
+                    panel.style.display = "flex";
+                }
                 if (role === 'owner') {
                     ownerSection.style.display = "block";
                     setupUserObserver();
@@ -369,34 +384,35 @@
             } else {
                 loginBtn.style.display = "block";
                 logoutBtn.style.display = "none";
+                repairBtn.style.display = "none";
                 userInfo.innerText = "";
                 panel.style.display = "none";
+                ownerSection.style.display = "none";
                 currentUserRole = 'member';
             }
         });
 
-        // --- User Management Observer (Owner Only) ---
         function setupUserObserver() {
             onSnapshot(collection(db, "users"), (snapshot) => {
                 const list = document.getElementById('user-list');
                 list.innerHTML = "";
                 snapshot.forEach(docSnap => {
                     const u = docSnap.data();
-                    // Don't list the current owner in the management list to avoid accidents
                     if (u.email.toLowerCase() === OWNER_EMAIL.toLowerCase()) return; 
 
                     const div = document.createElement('div');
                     div.className = "user-row";
                     div.innerHTML = `
-                        <span>${u.displayName || u.email.split('@')[0]} <small class="role-badge ${u.role === 'admin' ? 'role-admin' : ''}">${u.role}</small> ${u.isBanned ? '🚫' : ''}</span>
+                        <span>${u.displayName || u.email.split('@')[0]} <small class="role-badge ${u.role === 'admin' ? 'role-admin' : 'role-member'}">${u.role}</small> ${u.isBanned ? '🚫' : ''}</span>
                         <div class="user-actions">
-                            <button onclick="window.updateRole('${u.uid}', '${u.role === 'admin' ? 'member' : 'admin'}')">${u.role === 'admin' ? 'demote' : 'promote'}</button>
-                            <button style="background:#ff4757;color:white" onclick="window.toggleBan('${u.uid}', ${!u.isBanned})">${u.isBanned ? 'unban' : 'ban'}</button>
+                            <button class="btn-auth" onclick="window.updateRole('${u.uid}', '${u.role === 'admin' ? 'member' : 'admin'}')">${u.role === 'admin' ? 'demote' : 'promote'}</button>
+                            <button class="btn-auth" style="background:#ff4757;color:white" onclick="window.toggleBan('${u.uid}', ${!u.isBanned})">${u.isBanned ? 'unban' : 'ban'}</button>
                         </div>
                     `;
                     list.appendChild(div);
                 });
-            });
+                if (list.innerHTML === "") list.innerHTML = '<p style="font-size:0.7rem;opacity:0.5;">no other users registered yet.</p>';
+            }, (err) => console.error("User observer error:", err));
         }
 
         window.updateRole = async (uid, newRole) => {
@@ -409,7 +425,7 @@
             await updateDoc(doc(db, "users", uid), { isBanned: banState });
         };
 
-        // --- Core Site Logic ---
+        // Standard logic
         onSnapshot(doc(db, "config", "timer"), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
@@ -445,11 +461,13 @@
         }
 
         window.toggleGlobalTheme = async () => {
+            if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
             const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
             await updateDoc(doc(db, "config", "timer"), { theme: nextTheme });
         };
 
         window.updateTimer = async () => {
+            if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
             const dateVal = document.getElementById('date-input').value;
             const nameVal = document.getElementById('name-input').value;
             if (!dateVal || !nameVal) return;
@@ -457,6 +475,7 @@
         };
 
         window.sendBroadcast = async () => {
+            if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
             const input = document.getElementById('broadcast-input');
             const text = input.value;
             if (!text) return;
@@ -464,7 +483,7 @@
             await addDoc(collection(db, "broadcasts"), { text: text, sentAt: new Date().toISOString() });
         };
 
-        // --- Panel Dragging ---
+        // UI Helpers
         const panel = document.getElementById("admin-panel");
         const header = document.getElementById("admin-header");
         let isDragging = false;
@@ -482,7 +501,6 @@
         };
         document.onmouseup = () => isDragging = false;
 
-        // --- Timer Loop ---
         setInterval(() => {
             if (!targetTime) return;
             const diff = targetTime - new Date().getTime();
@@ -497,7 +515,6 @@
             document.getElementById('seconds').innerText = Math.floor((diff % _min) / _sec).toString().padStart(2, '0');
         }, 1000);
 
-        // --- Particles ---
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
