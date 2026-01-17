@@ -304,7 +304,8 @@
     <!-- Flashbang Assets -->
     <div id="flashbang-overlay"></div>
     <img id="think-fast-img" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/thinkfastchucklenuts.png?raw=true" alt="Think Fast">
-    <audio id="flashbang-sound" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/flashbang-gah-dayum.mp3?raw=true"></audio>
+    <audio id="flashbang-sound" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/flashbang-gah-dayum.mp3?raw=true" preload="auto"></audio>
+    <audio id="scream-sound" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/Screen%20recording%202026-01-13%204.07.40%20PM.mp3?raw=true" preload="auto"></audio>
 
     <div id="notif-banner" onclick="window.requestNotifPermission()">
         🔔 enable web notifications to get visitor alerts
@@ -397,11 +398,12 @@
         window.login = () => signInWithPopup(auth, provider).catch(e => showStatus("Login Error: " + e.message, true));
         window.logout = () => signOut(auth);
 
-        function showNotification(text, isVisitor = false) {
+        function showNotification(text, sender = null, isVisitor = false) {
             const container = document.getElementById('broadcast-container');
             const msg = document.createElement('div');
             msg.className = `broadcast-msg ${isVisitor ? 'visitor-notification' : ''}`;
-            msg.innerText = text.toLowerCase();
+            const prefix = sender ? `${sender}: ` : '';
+            msg.innerText = (prefix + text).toLowerCase();
             container.appendChild(msg);
             setTimeout(() => { msg.style.opacity = '0'; setTimeout(() => msg.remove(), 500); }, 4000);
             if (isVisitor) sendWebNotification("Visitor Alert", text);
@@ -498,7 +500,7 @@
                             const currentOnline = snap.docs.filter(doc => doc.data().isOnline && doc.id !== user.uid);
                             if (currentOnline.length > lastKnownVisitorCount) {
                                 const newVisitor = currentOnline[currentOnline.length - 1].data();
-                                showNotification(`👀 visitor: ${newVisitor.displayName || 'someone'}`, true);
+                                showNotification(`👀 visitor: ${newVisitor.displayName || 'someone'}`, null, true);
                             }
                             lastKnownVisitorCount = currentOnline.length;
                         });
@@ -515,7 +517,6 @@
                     // Global Interaction Listener
                     onSnapshot(doc(db, "interactions", "global"), (snap) => {
                         if (snap.exists() && snap.data().sentAt) {
-                            // Check if this global event happened recently (last 10 seconds)
                             const sentTime = snap.data().sentAt.toMillis();
                             if (Date.now() - sentTime < 10000) {
                                 handleInteraction(snap.data().type);
@@ -543,29 +544,29 @@
                 setTimeout(() => document.body.classList.remove('invert-active'), 5000);
             } else if (type === 'confetti') {
                 confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+            } else if (type === 'scream') {
+                const snd = document.getElementById('scream-sound');
+                snd.volume = 1.0;
+                snd.currentTime = 0;
+                snd.play().catch(e => console.log("Audio prevented"));
             } else if (type === 'flashbang') {
                 const img = document.getElementById('think-fast-img');
                 const snd = document.getElementById('flashbang-sound');
                 const overlay = document.getElementById('flashbang-overlay');
                 
-                // 1. Show Image
                 img.style.display = "block";
-                
-                // 2. Wait 500ms then Flash
                 setTimeout(() => {
                     img.style.display = "none";
                     snd.currentTime = 0;
                     snd.play().catch(e => console.log("Audio prevented"));
                     
-                    // Flash On
-                    overlay.style.transition = "none"; // Instant on
+                    overlay.style.transition = "none";
                     overlay.style.opacity = "1";
                     
-                    // 3. Wait 10s then fade out
                     setTimeout(() => {
                         overlay.style.transition = "opacity 3s ease-out";
                         overlay.style.opacity = "0";
-                    }, 10000); // 10 seconds white screen
+                    }, 5000); // 5 seconds white screen
                 }, 500);
             }
         }
@@ -608,7 +609,6 @@
                     const statusClass = u.isOnline ? 'status-online' : 'status-offline';
                     
                     // --- ROLE RESTRICTION LOGIC ---
-                    // Only display Auth buttons (Ban/Promote) if YOU are the OWNER
                     let authButtonsHtml = '';
                     if (currentUserRole === 'owner') {
                         authButtonsHtml = `
@@ -638,6 +638,7 @@
                             <button class="btn-fun" onclick="window.triggerFun('${u.uid}','invert')" title="Invert">🌈</button>
                             <button class="btn-fun" onclick="window.triggerFun('${u.uid}','confetti')" title="Confetti">🎉</button>
                             <button class="btn-fun btn-fun-danger" onclick="window.triggerFun('${u.uid}','flashbang')" title="Flashbang">💣</button>
+                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','scream')" title="SCREAM" style="background:red;">🔊</button>
                         </div>
                     `;
                     list.appendChild(div);
@@ -670,7 +671,7 @@
         onSnapshot(collection(db, "broadcasts"), (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added" && new Date(change.doc.data().sentAt).getTime() > pageLoadTime) {
-                    showNotification(change.doc.data().text);
+                    showNotification(change.doc.data().text, change.doc.data().sender);
                 }
             });
         });
@@ -694,7 +695,8 @@
             const text = input.value;
             if (!text) return;
             input.value = "";
-            await addDoc(collection(db, "broadcasts"), { text, sentAt: new Date().toISOString() });
+            const sender = auth.currentUser.displayName || auth.currentUser.email.split('@')[0];
+            await addDoc(collection(db, "broadcasts"), { text, sender, sentAt: new Date().toISOString() });
         };
 
         const panel = document.getElementById("admin-panel");
