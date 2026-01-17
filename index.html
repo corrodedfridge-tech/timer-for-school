@@ -52,7 +52,6 @@
         }
         .invert-active { filter: invert(1) hue-rotate(180deg); }
 
-        /* Flashbang Overlay */
         #flashbang-overlay {
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -60,7 +59,7 @@
             z-index: 9999;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 3s ease-out; /* Smooth fade out default */
+            transition: opacity 3s ease-out;
         }
         #think-fast-img {
             position: fixed;
@@ -301,11 +300,16 @@
 </head>
 <body data-theme="dark">
 
-    <!-- Flashbang Assets -->
+    <!-- Audio Effects -->
     <div id="flashbang-overlay"></div>
     <img id="think-fast-img" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/thinkfastchucklenuts.png?raw=true" alt="Think Fast">
-    <audio id="flashbang-sound" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/flashbang-gah-dayum.mp3?raw=true" preload="auto"></audio>
-    <audio id="scream-sound" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/Screen%20recording%202026-01-13%204.07.40%20PM.mp3?raw=true" preload="auto"></audio>
+    
+    <audio id="flashbang-sound" preload="auto">
+        <source src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/flashbang-gah-dayum.mp3?raw=true" type="audio/mpeg">
+    </audio>
+    <audio id="scream-sound" preload="auto">
+        <source src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/Screen%20recording%202026-01-13%204.07.40%20PM.mp3?raw=true" type="audio/mpeg">
+    </audio>
 
     <div id="notif-banner" onclick="window.requestNotifPermission()">
         🔔 enable web notifications to get visitor alerts
@@ -394,6 +398,21 @@
         let currentUserId = null;
         const pageLoadTime = Date.now();
         let lastKnownVisitorCount = 0;
+        let audioUnlocked = false;
+
+        // Unlock Audio for everyone on first click (crucial for sounds to work)
+        document.body.addEventListener('click', () => {
+            if (!audioUnlocked) {
+                const sounds = [document.getElementById('flashbang-sound'), document.getElementById('scream-sound')];
+                sounds.forEach(s => {
+                    s.play().then(() => {
+                        s.pause();
+                        s.currentTime = 0;
+                    }).catch(() => {});
+                });
+                audioUnlocked = true;
+            }
+        }, { once: true });
 
         window.login = () => signInWithPopup(auth, provider).catch(e => showStatus("Login Error: " + e.message, true));
         window.logout = () => signOut(auth);
@@ -483,15 +502,12 @@
                     currentUserRole = role;
                     userInfo.innerHTML = `hi, ${user.displayName || userEmail.split('@')[0]} <span class="role-badge role-${role}">${role}</span>`;
                     
-                    // Show Panel for Admin OR Owner
                     if (role === 'admin' || role === 'owner') {
                         panel.style.display = "flex";
-                        // Setup User Observer for both so they can trigger effects
                         ownerSection.style.display = "block";
                         window.setupUserObserver();
                     }
 
-                    // Extra Owner Stuff
                     if (role === 'owner') {
                         if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
                             document.getElementById('notif-banner').style.display = 'block';
@@ -506,7 +522,6 @@
                         });
                     }
 
-                    // Personal Interaction Listener
                     onSnapshot(doc(db, "interactions", user.uid), (snap) => {
                         if (snap.exists()) {
                             handleInteraction(snap.data().type);
@@ -514,7 +529,6 @@
                         }
                     });
 
-                    // Global Interaction Listener
                     onSnapshot(doc(db, "interactions", "global"), (snap) => {
                         if (snap.exists() && snap.data().sentAt) {
                             const sentTime = snap.data().sentAt.toMillis();
@@ -546,9 +560,11 @@
                 confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
             } else if (type === 'scream') {
                 const snd = document.getElementById('scream-sound');
-                snd.volume = 1.0;
-                snd.currentTime = 0;
-                snd.play().catch(e => console.log("Audio prevented"));
+                if (snd) {
+                    snd.volume = 1.0;
+                    snd.currentTime = 0;
+                    snd.play().catch(e => console.log("Playback failed: Interaction required"));
+                }
             } else if (type === 'flashbang') {
                 const img = document.getElementById('think-fast-img');
                 const snd = document.getElementById('flashbang-sound');
@@ -557,16 +573,16 @@
                 img.style.display = "block";
                 setTimeout(() => {
                     img.style.display = "none";
-                    snd.currentTime = 0;
-                    snd.play().catch(e => console.log("Audio prevented"));
-                    
+                    if (snd) {
+                        snd.currentTime = 0;
+                        snd.play().catch(e => console.log("Flashbang sound failed"));
+                    }
                     overlay.style.transition = "none";
                     overlay.style.opacity = "1";
-                    
                     setTimeout(() => {
                         overlay.style.transition = "opacity 3s ease-out";
                         overlay.style.opacity = "0";
-                    }, 5000); // 5 seconds white screen
+                    }, 5000);
                 }, 500);
             }
         }
@@ -574,6 +590,9 @@
         window.triggerFun = async (uid, type) => {
             if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
             try {
+                // If targeting self, play locally immediately too
+                if (uid === currentUserId) handleInteraction(type);
+                
                 await setDoc(doc(db, "interactions", uid), { type, sentAt: serverTimestamp() });
                 showStatus(`Sent ${type}!`);
             } catch (e) { showStatus("Blocked.", true); }
@@ -581,7 +600,7 @@
 
         window.triggerGlobalFlashbang = async () => {
             if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
-            if(!confirm("WARNING: This will flashbang EVERYONE connected. Proceed?")) return;
+            if(!confirm("Proceed with Global Flashbang?")) return;
             try {
                 await setDoc(doc(db, "interactions", "global"), { type: 'flashbang', sentAt: serverTimestamp() });
                 showStatus("GLOBAL FLASHBANG SENT");
@@ -602,13 +621,12 @@
                 snapshot.forEach(docSnap => {
                     const u = docSnap.data();
                     count++;
-                    if (u.uid === currentUserId) return; 
+                    const isSelf = u.uid === currentUserId;
 
                     const div = document.createElement('div');
                     div.className = "user-row";
                     const statusClass = u.isOnline ? 'status-online' : 'status-offline';
                     
-                    // --- ROLE RESTRICTION LOGIC ---
                     let authButtonsHtml = '';
                     if (currentUserRole === 'owner') {
                         authButtonsHtml = `
@@ -621,14 +639,12 @@
                                 </button>
                             </div>
                         `;
-                    } else {
-                        authButtonsHtml = `<span style="font-size:0.6rem; opacity:0.5;">(admin view)</span>`;
                     }
 
                     div.innerHTML = `
                         <div class="user-info-bar">
                             <div class="user-meta">
-                                <span><span class="status-dot ${statusClass}"></span>${u.displayName || 'Anon'} <small class="role-badge role-${u.role || 'member'}">${u.role || 'member'}</small></span>
+                                <span><span class="status-dot ${statusClass}"></span>${u.displayName || 'Anon'} ${isSelf ? '(you)' : ''} <small class="role-badge role-${u.role || 'member'}">${u.role || 'member'}</small></span>
                                 <span class="user-email">${u.email || 'no email'}</span>
                             </div>
                             ${authButtonsHtml}
@@ -644,7 +660,6 @@
                     list.appendChild(div);
                 });
                 countBadge.innerText = count;
-                if (list.innerHTML === "") list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>no other users.</p>";
             });
         };
 
@@ -715,23 +730,19 @@
             const now = new Date();
             const target = new Date(targetTime);
             const diff = target - now;
-            
             if (diff <= 0) {
                 document.getElementById('event-name').innerText = "event live";
                 ['months','days','hours','minutes','seconds'].forEach(id => document.getElementById(id).innerText = "00");
                 return;
             }
-
             let m = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
             let tempDate = new Date(now);
             tempDate.setMonth(now.getMonth() + m);
             if (tempDate > target) { m--; tempDate = new Date(now); tempDate.setMonth(now.getMonth() + m); }
-
             const dayDiff = Math.floor((target - tempDate) / (1000 * 60 * 60 * 24));
             const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
             document.getElementById('months').innerText = m.toString().padStart(2, '0');
             document.getElementById('days').innerText = dayDiff.toString().padStart(2, '0');
             document.getElementById('hours').innerText = hours.toString().padStart(2, '0');
