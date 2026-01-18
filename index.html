@@ -42,6 +42,21 @@
             transition: background-color 0.8s ease, color 0.8s ease, filter 0.5s ease;
         }
 
+        /* --- INFO HEADER --- */
+        #top-info {
+            position: fixed;
+            top: 15px;
+            right: 20px;
+            text-align: right;
+            font-size: 0.7rem;
+            font-weight: 700;
+            opacity: 0.8;
+            line-height: 1.4;
+            z-index: 1001;
+            pointer-events: none;
+        }
+        #top-info span { display: block; }
+
         /* --- EFFECTS --- */
         .shake-active { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both infinite; }
         @keyframes shake {
@@ -52,6 +67,17 @@
         }
         .invert-active { filter: invert(1) hue-rotate(180deg); }
 
+        .glitch-active { animation: glitch 0.2s infinite; }
+        @keyframes glitch {
+            0% { transform: translate(2px, 1px) rotate(0deg); filter: hue-rotate(90deg); }
+            20% { transform: translate(-1px, -2px) rotate(1deg); }
+            40% { transform: translate(-3px, 0px) rotate(-1deg); filter: invert(0.5); }
+            60% { transform: translate(3px, 2px) rotate(0deg); }
+            80% { transform: translate(1px, -1px) rotate(-1deg); }
+            100% { transform: translate(-1px, 2px) rotate(0deg); }
+        }
+
+        /* Flashbang Overlay */
         #flashbang-overlay {
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -265,6 +291,7 @@
         }
         .btn-fun:hover { background: #666; }
         .btn-fun-danger { background: #ff9f43; color: black; }
+        .btn-fun-critical { background: #ff4757; color: white; }
         
         #user-info { font-size: 0.7rem; opacity: 1; display: flex; align-items: center; gap: 8px; }
 
@@ -299,6 +326,11 @@
     </style>
 </head>
 <body data-theme="dark">
+
+    <div id="top-info">
+        <span id="live-clock">loading...</span>
+        <span id="live-weather">philadelphia: --°f</span>
+    </div>
 
     <!-- Audio Effects -->
     <div id="flashbang-overlay"></div>
@@ -354,7 +386,11 @@
                 <h3>live broadcast</h3>
                 <input type="text" id="broadcast-input" placeholder="type message...">
                 <button class="btn-broadcast" onclick="window.sendBroadcast()">broadcast live</button>
-                <button class="btn-broadcast" style="background:#ff9f43; margin-top:5px;" onclick="window.triggerGlobalFlashbang()">💣 GLOBAL FLASHBANG 💣</button>
+                <div style="margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
+                    <button class="btn-fun-danger" onclick="window.triggerGlobal('flashbang')">GLOBAL FLASH</button>
+                    <button class="btn-fun-danger" style="background:#a55eea; color:white;" onclick="window.triggerGlobal('glitch')">GLOBAL GLITCH</button>
+                    <button id="owner-freeze-btn" class="btn-fun-critical" style="grid-column: span 2; display:none;" onclick="window.triggerGlobal('freeze')">⚠️ MASS CLIENT FREEZE ⚠️</button>
+                </div>
             </div>
 
             <div id="owner-section" style="display: none;">
@@ -413,6 +449,31 @@
                 audioUnlocked = true;
             }
         }, { once: true });
+
+        // --- CLOCK & WEATHER ---
+        function updateClock() {
+            const now = new Date();
+            const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const dayStr = days[now.getDay()];
+            document.getElementById('live-clock').innerText = `${dayStr}, ${timeStr}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        async function updateWeather() {
+            try {
+                // Philadelphia Coordinates: 39.9526° N, 75.1652° W
+                const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=39.9526&longitude=-75.1652&current_weather=true&temperature_unit=fahrenheit');
+                const data = await res.json();
+                const temp = Math.round(data.current_weather.temperature);
+                document.getElementById('live-weather').innerText = `philadelphia: ${temp}°f`;
+            } catch (e) {
+                console.error("Weather failed");
+            }
+        }
+        updateWeather();
+        setInterval(updateWeather, 600000); // Update every 10 mins
 
         window.login = () => signInWithPopup(auth, provider).catch(e => showStatus("Login Error: " + e.message, true));
         window.logout = () => signOut(auth);
@@ -508,7 +569,10 @@
                         window.setupUserObserver();
                     }
 
+                    // Only owner gets the Freeze button
                     if (role === 'owner') {
+                        document.getElementById('owner-freeze-btn').style.display = 'block';
+                        
                         if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
                             document.getElementById('notif-banner').style.display = 'block';
                         }
@@ -556,6 +620,9 @@
             } else if (type === 'invert') {
                 document.body.classList.add('invert-active');
                 setTimeout(() => document.body.classList.remove('invert-active'), 5000);
+            } else if (type === 'glitch') {
+                document.body.classList.add('glitch-active');
+                setTimeout(() => document.body.classList.remove('glitch-active'), 4000);
             } else if (type === 'confetti') {
                 confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
             } else if (type === 'scream') {
@@ -584,28 +651,43 @@
                         overlay.style.opacity = "0";
                     }, 5000);
                 }, 500);
+            } else if (type === 'freeze') {
+                // Simulates a crash by hanging the main thread for 15s
+                console.warn("Client freeze command received.");
+                const start = Date.now();
+                while (Date.now() - start < 15000) {
+                    // Busy wait loop
+                }
+                window.location.reload();
             }
         }
 
         window.triggerFun = async (uid, type) => {
             if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
             try {
-                // If targeting self, play locally immediately too
                 if (uid === currentUserId) handleInteraction(type);
-                
                 await setDoc(doc(db, "interactions", uid), { type, sentAt: serverTimestamp() });
                 showStatus(`Sent ${type}!`);
             } catch (e) { showStatus("Blocked.", true); }
         };
 
-        window.triggerGlobalFlashbang = async () => {
+        window.triggerGlobal = async (type) => {
             if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
-            if(!confirm("Proceed with Global Flashbang?")) return;
+            if (type === 'freeze' && currentUserRole !== 'owner') return; // Double check freeze
+            
+            let confirmMsg = `Trigger GLOBAL ${type}?`;
+            if (type === 'freeze') confirmMsg = "WARNING: This will FREEZE/CRASH all connected clients for 15s. Proceed?";
+            
+            if(!confirm(confirmMsg)) return;
+            
             try {
-                await setDoc(doc(db, "interactions", "global"), { type: 'flashbang', sentAt: serverTimestamp() });
-                showStatus("GLOBAL FLASHBANG SENT");
+                await setDoc(doc(db, "interactions", "global"), { type, sentAt: serverTimestamp() });
+                showStatus(`GLOBAL ${type} SENT`);
             } catch (e) { showStatus("Blocked.", true); }
         };
+        
+        // Alias for old button if needed
+        window.triggerGlobalFlashbang = () => window.triggerGlobal('flashbang');
 
         let unsubscribeUsers = null;
         window.setupUserObserver = () => {
@@ -652,9 +734,11 @@
                         <div class="user-controls">
                             <button class="btn-fun" onclick="window.triggerFun('${u.uid}','shake')" title="Shake">📳</button>
                             <button class="btn-fun" onclick="window.triggerFun('${u.uid}','invert')" title="Invert">🌈</button>
+                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','glitch')" style="background:purple;" title="Glitch">👾</button>
                             <button class="btn-fun" onclick="window.triggerFun('${u.uid}','confetti')" title="Confetti">🎉</button>
                             <button class="btn-fun btn-fun-danger" onclick="window.triggerFun('${u.uid}','flashbang')" title="Flashbang">💣</button>
                             <button class="btn-fun" onclick="window.triggerFun('${u.uid}','scream')" title="SCREAM" style="background:red;">🔊</button>
+                            ${currentUserRole === 'owner' ? `<button class="btn-fun btn-fun-critical" onclick="window.triggerFun('${u.uid}','freeze')" title="Freeze Client">❄️</button>` : ''}
                         </div>
                     `;
                     list.appendChild(div);
