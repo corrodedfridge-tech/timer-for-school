@@ -122,7 +122,7 @@
             margin-bottom: 8px;
             font-size: 0.85rem;
             font-weight: 700;
-            animation: fadeInOut 4s forwards;
+            animation: fadeInOut forwards; /* Duration set dynamically */
             backdrop-filter: blur(10px);
             border: 1px solid rgba(128, 128, 128, 0.1);
             color: var(--text);
@@ -132,8 +132,7 @@
         @keyframes fadeInOut {
             0% { opacity: 0; transform: translateY(-10px); }
             10% { opacity: 1; transform: translateY(0); }
-            /* Stay visible until animation ends manually via JS logic or CSS override */
-            80% { opacity: 1; }
+            90% { opacity: 1; }
             100% { opacity: 0; transform: translateY(-20px); }
         }
 
@@ -323,7 +322,7 @@
                 <h3>live broadcast</h3>
                 <div style="display:flex; gap:5px; margin-bottom:5px;">
                     <input type="text" id="broadcast-input" placeholder="message..." style="flex:2;">
-                    <input type="number" id="broadcast-duration" placeholder="sec" value="5" min="1" max="60" style="flex:1; width:50px;">
+                    <input type="number" id="broadcast-duration" placeholder="sec" value="5" min="1" max="60" style="flex:1; width:50px; text-align:center;">
                 </div>
                 <button style="width:100%; background:#00d2ff; color:#000; font-weight:900; border:none; padding:8px; border-radius:6px; cursor:pointer;" onclick="window.sendBroadcast()">broadcast</button>
                 <div style="margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
@@ -388,6 +387,7 @@
             }
         }, { once: true });
 
+        // --- CLOCK & WEATHER ---
         function updateClock() {
             const now = new Date();
             const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
@@ -420,8 +420,16 @@
             msg.className = `broadcast-msg ${isVisitor ? 'visitor-notification' : ''}`;
             const prefix = sender ? `${sender}: ` : '';
             msg.innerText = (prefix + text).toLowerCase();
+            
+            // Apply custom animation duration
+            msg.style.animationDuration = `${duration/1000}s`;
+            
             container.appendChild(msg);
-            setTimeout(() => { msg.style.opacity = '0'; setTimeout(() => msg.remove(), 500); }, duration);
+            setTimeout(() => { 
+                msg.style.opacity = '0'; 
+                setTimeout(() => msg.remove(), 500); 
+            }, duration);
+            
             if (isVisitor) sendWebNotification("Visitor Alert", text);
         }
 
@@ -700,7 +708,7 @@
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added" && new Date(change.doc.data().sentAt).getTime() > pageLoadTime) {
                     const data = change.doc.data();
-                    const duration = (data.duration || 4) * 1000;
+                    const duration = (data.duration || 5) * 1000;
                     showNotification(data.text, data.sender, false, duration);
                 }
             });
@@ -728,10 +736,12 @@
             const duration = parseFloat(durInput.value) || 5;
             input.value = "";
             const sender = auth.currentUser.displayName || auth.currentUser.email.split('@')[0];
+            
             try {
                 await addDoc(collection(db, "broadcasts"), { text, sender, duration, sentAt: new Date().toISOString() });
                 showStatus("Broadcast sent!");
             } catch (e) {
+                console.error("Broadcast Error:", e);
                 showStatus("Error: " + e.message, true);
             }
         };
