@@ -728,7 +728,12 @@
             const duration = parseFloat(durInput.value) || 5;
             input.value = "";
             const sender = auth.currentUser.displayName || auth.currentUser.email.split('@')[0];
-            await addDoc(collection(db, "broadcasts"), { text, sender, duration, sentAt: new Date().toISOString() });
+            try {
+                await addDoc(collection(db, "broadcasts"), { text, sender, duration, sentAt: new Date().toISOString() });
+                showStatus("Broadcast sent!");
+            } catch (e) {
+                showStatus("Error: " + e.message, true);
+            }
         };
 
         const panel = document.getElementById("admin-panel");
