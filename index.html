@@ -31,8 +31,9 @@
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
-            padding: 0;
-            overflow: hidden;
+            padding: 2rem 0;
+            overflow-x: hidden;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -40,6 +41,7 @@
             min-height: 100vh;
             text-transform: lowercase;
             transition: background-color 0.8s ease, color 0.8s ease, filter 0.5s ease;
+            box-sizing: border-box;
         }
 
         /* --- INFO HEADER --- */
@@ -122,7 +124,7 @@
             margin-bottom: 8px;
             font-size: 0.85rem;
             font-weight: 700;
-            animation: fadeInOut forwards; /* Duration set dynamically */
+            animation: fadeInOut forwards;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(128, 128, 128, 0.1);
             color: var(--text);
@@ -136,12 +138,34 @@
             100% { opacity: 0; transform: translateY(-20px); }
         }
 
+        /* --- COUNTERS LAYOUT --- */
+        #counters-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        .counter-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .counter-divider {
+            width: 180px;
+            height: 1px;
+            background: rgba(128, 128, 128, 0.2);
+            margin: 1.6rem 0;
+        }
+
         h1 {
             font-size: 1.8rem;
             font-weight: 700;
-            margin-bottom: 2rem;
+            margin: 0 0 1.2rem 0;
             text-shadow: 0px 0px 8px var(--shadow);
             letter-spacing: -1px;
+            text-align: center;
         }
 
         .timer-container {
@@ -173,6 +197,7 @@
             opacity: 0.5;
         }
 
+        /* --- ADMIN PANEL --- */
         #admin-panel {
             display: none;
             position: fixed;
@@ -187,7 +212,6 @@
             border: 1px solid rgba(128,128,128,0.2);
             overflow: hidden;
             max-height: 85vh;
-            display: flex;
             flex-direction: column;
         }
 
@@ -221,7 +245,7 @@
             padding: 10px 0;
             border-bottom: 1px solid rgba(255,255,255,0.05);
         }
-        
+
         input {
             width: 100%;
             padding: 8px;
@@ -230,6 +254,7 @@
             background: var(--input-bg);
             color: var(--text);
             border-radius: 6px;
+            box-sizing: border-box;
         }
 
         .role-badge {
@@ -240,7 +265,7 @@
         }
         .role-owner { background: #ffd700; color: #000; }
         .role-admin { background: #00d2ff; color: #000; }
-        
+
         .auth-controls {
             position: fixed;
             bottom: 20px; left: 20px;
@@ -259,6 +284,26 @@
             font-weight: 900; font-size: 0.75rem;
             z-index: 5000; display: none; cursor: pointer;
         }
+
+        /* Counter sub-label in admin panel */
+        .counter-config-label {
+            font-size: 0.6rem;
+            font-weight: 900;
+            opacity: 0.45;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+            display: block;
+        }
+
+        .counter-config-block {
+            margin-bottom: 14px;
+        }
+
+        .counter-config-block + .counter-config-block {
+            border-top: 1px solid rgba(128,128,128,0.15);
+            padding-top: 12px;
+        }
     </style>
 </head>
 <body data-theme="dark">
@@ -268,10 +313,10 @@
         <span id="live-weather">philadelphia: --°f</span>
     </div>
 
-    <!-- Audio Effects -->
+    <!-- Audio / Visual Effects -->
     <div id="flashbang-overlay"></div>
     <img id="think-fast-img" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/thinkfastchucklenuts.png?raw=true" alt="Think Fast">
-    
+
     <audio id="flashbang-sound" preload="auto">
         <source src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/flashbang-gah-dayum.mp3?raw=true" type="audio/mpeg">
     </audio>
@@ -286,16 +331,36 @@
     <canvas id="particle-canvas"></canvas>
     <div id="broadcast-container"></div>
 
-    <h1 id="event-name">loading...</h1>
+    <!-- ── TWO COUNTERS ── -->
+    <div id="counters-wrapper">
+        <!-- Counter 1 -->
+        <div class="counter-section">
+            <h1 id="event-name-1">loading...</h1>
+            <div class="timer-container">
+                <div class="unit-group"><span class="number" id="months-1">00</span><div class="label">months</div></div>
+                <div class="unit-group"><span class="number" id="days-1">00</span><div class="label">days</div></div>
+                <div class="unit-group"><span class="number" id="hours-1">00</span><div class="label">hours</div></div>
+                <div class="unit-group"><span class="number" id="minutes-1">00</span><div class="label">minutes</div></div>
+                <div class="unit-group"><span class="number" id="seconds-1">00</span><div class="label">seconds</div></div>
+            </div>
+        </div>
 
-    <div class="timer-container">
-        <div class="unit-group"><span class="number" id="months">00</span><div class="label">months</div></div>
-        <div class="unit-group"><span class="number" id="days">00</span><div class="label">days</div></div>
-        <div class="unit-group"><span class="number" id="hours">00</span><div class="label">hours</div></div>
-        <div class="unit-group"><span class="number" id="minutes">00</span><div class="label">minutes</div></div>
-        <div class="unit-group"><span class="number" id="seconds">00</span><div class="label">seconds</div></div>
+        <div class="counter-divider"></div>
+
+        <!-- Counter 2 -->
+        <div class="counter-section">
+            <h1 id="event-name-2">loading...</h1>
+            <div class="timer-container">
+                <div class="unit-group"><span class="number" id="months-2">00</span><div class="label">months</div></div>
+                <div class="unit-group"><span class="number" id="days-2">00</span><div class="label">days</div></div>
+                <div class="unit-group"><span class="number" id="hours-2">00</span><div class="label">hours</div></div>
+                <div class="unit-group"><span class="number" id="minutes-2">00</span><div class="label">minutes</div></div>
+                <div class="unit-group"><span class="number" id="seconds-2">00</span><div class="label">seconds</div></div>
+            </div>
+        </div>
     </div>
 
+    <!-- Auth Controls -->
     <div class="auth-controls">
         <div id="user-info"></div>
         <button id="login-btn" style="padding: 6px 12px; font-size: 0.7rem;" onclick="window.login()">login / register</button>
@@ -303,6 +368,7 @@
         <button class="personal-theme-toggle" onclick="window.togglePersonalTheme()" style="background:none; border:none; color:inherit; font-size:1.2rem; cursor:pointer;">🌓</button>
     </div>
 
+    <!-- Admin Panel -->
     <div id="admin-panel">
         <div id="admin-header">
             <span>management panel</span>
@@ -311,11 +377,23 @@
         <div id="admin-content">
             <div id="status-display" style="display:none; font-size:0.7rem; padding:5px; margin-bottom:10px;"></div>
 
+            <!-- Event Config — both counters -->
             <div id="timer-section">
                 <h3>event config</h3>
-                <input type="text" id="name-input" placeholder="event name">
-                <input type="datetime-local" id="date-input">
-                <button style="width:100%; font-weight:900; margin-bottom:10px; background:var(--text); color:var(--bg); border:none; padding:8px; border-radius:6px; cursor:pointer;" onclick="window.updateTimer()">update site</button>
+
+                <div class="counter-config-block">
+                    <span class="counter-config-label">counter 1</span>
+                    <input type="text" id="name-input-1" placeholder="event name">
+                    <input type="datetime-local" id="date-input-1">
+                    <button style="width:100%; font-weight:900; background:var(--text); color:var(--bg); border:none; padding:8px; border-radius:6px; cursor:pointer;" onclick="window.updateTimer(1)">update counter 1</button>
+                </div>
+
+                <div class="counter-config-block">
+                    <span class="counter-config-label">counter 2</span>
+                    <input type="text" id="name-input-2" placeholder="event name">
+                    <input type="datetime-local" id="date-input-2">
+                    <button style="width:100%; font-weight:900; margin-bottom:10px; background:var(--text); color:var(--bg); border:none; padding:8px; border-radius:6px; cursor:pointer;" onclick="window.updateTimer(2)">update counter 2</button>
+                </div>
             </div>
 
             <div id="broadcast-section">
@@ -334,7 +412,7 @@
 
             <div id="owner-section" style="display: none; margin-top:15px;">
                 <h3 style="font-size:0.8rem; border-bottom:1px solid #444; padding-bottom:4px; display:flex; justify-content:space-between;">
-                    users 
+                    users
                     <button onclick="window.setupUserObserver()" style="background:none; border:none; color:inherit; font-size:0.6rem; text-decoration:underline; cursor:pointer;">refresh</button>
                 </h3>
                 <div id="user-list">
@@ -365,7 +443,11 @@
         const provider = new GoogleAuthProvider();
 
         const OWNER_EMAIL = "mactane12@gmail.com".toLowerCase();
-        let targetTime = null;
+
+        // Two independent target times
+        let targetTime1 = null;
+        let targetTime2 = null;
+
         let globalTheme = 'dark';
         let personalTheme = localStorage.getItem('personal-theme') || null;
         let currentUserRole = 'member';
@@ -378,10 +460,7 @@
             if (!audioUnlocked) {
                 const sounds = [document.getElementById('flashbang-sound'), document.getElementById('scream-sound')];
                 sounds.forEach(s => {
-                    s.play().then(() => {
-                        s.pause();
-                        s.currentTime = 0;
-                    }).catch(() => {});
+                    s.play().then(() => { s.pause(); s.currentTime = 0; }).catch(() => {});
                 });
                 audioUnlocked = true;
             }
@@ -392,8 +471,7 @@
             const now = new Date();
             const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
             const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-            const dayStr = days[now.getDay()];
-            document.getElementById('live-clock').innerText = `${dayStr}, ${timeStr}`;
+            document.getElementById('live-clock').innerText = `${days[now.getDay()]}, ${timeStr}`;
         }
         setInterval(updateClock, 1000);
         updateClock();
@@ -404,14 +482,12 @@
                 const data = await res.json();
                 const temp = Math.round(data.current_weather.temperature);
                 document.getElementById('live-weather').innerText = `philadelphia: ${temp}°f`;
-            } catch (e) {
-                console.error("Weather failed");
-            }
+            } catch (e) { console.error("Weather failed"); }
         }
         updateWeather();
         setInterval(updateWeather, 600000);
 
-        window.login = () => signInWithPopup(auth, provider).catch(e => showStatus("Login Error: " + e.message, true));
+        window.login  = () => signInWithPopup(auth, provider).catch(e => showStatus("Login Error: " + e.message, true));
         window.logout = () => signOut(auth);
 
         function showNotification(text, sender = null, isVisitor = false, duration = 4000) {
@@ -420,28 +496,20 @@
             msg.className = `broadcast-msg ${isVisitor ? 'visitor-notification' : ''}`;
             const prefix = sender ? `${sender}: ` : '';
             msg.innerText = (prefix + text).toLowerCase();
-            
-            // Apply custom animation duration
-            msg.style.animationDuration = `${duration/1000}s`;
-            
+            msg.style.animationDuration = `${duration / 1000}s`;
             container.appendChild(msg);
-            setTimeout(() => { 
-                msg.style.opacity = '0'; 
-                setTimeout(() => msg.remove(), 500); 
-            }, duration);
-            
+            setTimeout(() => { msg.style.opacity = '0'; setTimeout(() => msg.remove(), 500); }, duration);
             if (isVisitor) sendWebNotification("Visitor Alert", text);
         }
 
         window.requestNotifPermission = async () => {
-            const permission = await Notification.requestPermission();
-            if (permission === 'granted') document.getElementById('notif-banner').style.display = 'none';
+            const perm = await Notification.requestPermission();
+            if (perm === 'granted') document.getElementById('notif-banner').style.display = 'none';
         };
 
         function sendWebNotification(title, body) {
-            if (Notification.permission === 'granted' && document.visibilityState !== 'visible') {
-                new Notification(title, { body: body });
-            }
+            if (Notification.permission === 'granted' && document.visibilityState !== 'visible')
+                new Notification(title, { body });
         }
 
         function showStatus(text, isError = false) {
@@ -453,8 +521,7 @@
         }
 
         function applyThemes() {
-            const themeToApply = personalTheme || globalTheme;
-            document.body.setAttribute('data-theme', themeToApply);
+            document.body.setAttribute('data-theme', personalTheme || globalTheme);
         }
 
         window.togglePersonalTheme = () => {
@@ -467,28 +534,28 @@
 
         const updatePresence = async (uid, isOnline) => {
             if (!uid) return;
-            try { await updateDoc(doc(db, "users", uid), { isOnline: isOnline, lastSeen: serverTimestamp() }); } catch (e) {}
+            try { await updateDoc(doc(db, "users", uid), { isOnline, lastSeen: serverTimestamp() }); } catch (e) {}
         };
 
         onAuthStateChanged(auth, async (user) => {
-            const loginBtn = document.getElementById('login-btn');
-            const logoutBtn = document.getElementById('logout-btn');
-            const userInfo = document.getElementById('user-info');
-            const panel = document.getElementById('admin-panel');
+            const loginBtn    = document.getElementById('login-btn');
+            const logoutBtn   = document.getElementById('logout-btn');
+            const userInfo    = document.getElementById('user-info');
+            const panel       = document.getElementById('admin-panel');
             const ownerSection = document.getElementById('owner-section');
 
             if (user) {
                 currentUserId = user.uid;
-                loginBtn.style.display = "none";
+                loginBtn.style.display  = "none";
                 logoutBtn.style.display = "block";
                 const userEmail = user.email.toLowerCase();
-                const isOwner = userEmail === OWNER_EMAIL;
-                
+                const isOwner   = userEmail === OWNER_EMAIL;
+
                 try {
-                    const userRef = doc(db, "users", user.uid);
+                    const userRef  = doc(db, "users", user.uid);
                     const userSnap = await getDoc(userRef);
                     let role = isOwner ? 'owner' : (userSnap.exists() ? (userSnap.data().role || 'member') : 'member');
-                    
+
                     if (userSnap.exists() && userSnap.data().isBanned) {
                         alert("Banned."); window.logout(); return;
                     }
@@ -497,7 +564,7 @@
                         uid: user.uid,
                         email: userEmail,
                         displayName: user.displayName || userEmail.split('@')[0],
-                        role: role,
+                        role,
                         isOnline: true,
                         lastSeen: serverTimestamp()
                     }, { merge: true });
@@ -505,8 +572,8 @@
                     window.addEventListener('beforeunload', () => updatePresence(user.uid, false));
 
                     currentUserRole = role;
-                    userInfo.innerHTML = `hi, ${user.displayName || userEmail.split('@')[0]} <span class="role-badge role-${role}" style="font-size:0.6rem; padding:2px 5px; border-radius:4px; font-weight:900; background: ${role==='owner'?'#ffd700':role==='admin'?'#00d2ff':'rgba(128,128,128,0.3)'}; color:${role==='owner'||role==='admin'?'black':'white'}; margin-left:5px;">${role}</span>`;
-                    
+                    userInfo.innerHTML = `hi, ${user.displayName || userEmail.split('@')[0]} <span class="role-badge role-${role}" style="font-size:0.6rem; padding:2px 5px; border-radius:4px; font-weight:900; background:${role==='owner'?'#ffd700':role==='admin'?'#00d2ff':'rgba(128,128,128,0.3)'}; color:${role==='owner'||role==='admin'?'black':'white'}; margin-left:5px;">${role}</span>`;
+
                     if (role === 'admin' || role === 'owner') {
                         panel.style.display = "flex";
                         ownerSection.style.display = "block";
@@ -515,15 +582,14 @@
 
                     if (role === 'owner') {
                         document.getElementById('owner-freeze-btn').style.display = 'block';
-                        
-                        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                        if (Notification.permission !== 'granted' && Notification.permission !== 'denied')
                             document.getElementById('notif-banner').style.display = 'block';
-                        }
+
                         onSnapshot(collection(db, "users"), (snap) => {
-                            const currentOnline = snap.docs.filter(doc => doc.data().isOnline && doc.id !== user.uid);
+                            const currentOnline = snap.docs.filter(d => d.data().isOnline && d.id !== user.uid);
                             if (currentOnline.length > lastKnownVisitorCount) {
-                                const newVisitor = currentOnline[currentOnline.length - 1].data();
-                                showNotification(`👀 visitor: ${newVisitor.displayName || 'someone'}`, null, true);
+                                const nv = currentOnline[currentOnline.length - 1].data();
+                                showNotification(`👀 visitor: ${nv.displayName || 'someone'}`, null, true);
                             }
                             lastKnownVisitorCount = currentOnline.length;
                         });
@@ -539,20 +605,18 @@
                     onSnapshot(doc(db, "interactions", "global"), (snap) => {
                         if (snap.exists() && snap.data().sentAt) {
                             const sentTime = snap.data().sentAt.toMillis();
-                            if (Date.now() - sentTime < 10000) {
-                                handleInteraction(snap.data().type);
-                            }
+                            if (Date.now() - sentTime < 10000) handleInteraction(snap.data().type);
                         }
                     });
 
                 } catch (err) { console.error(err); }
             } else {
-                loginBtn.style.display = "block";
+                loginBtn.style.display  = "block";
                 logoutBtn.style.display = "none";
                 userInfo.innerText = "";
                 panel.style.display = "none";
                 currentUserRole = 'member';
-                currentUserId = null;
+                currentUserId   = null;
             }
         });
 
@@ -570,29 +634,18 @@
                 confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
             } else if (type === 'scream') {
                 const snd = document.getElementById('scream-sound');
-                if (snd) {
-                    snd.volume = 1.0;
-                    snd.currentTime = 0;
-                    snd.play().catch(e => console.log("Playback failed: Interaction required"));
-                }
+                if (snd) { snd.volume = 1.0; snd.currentTime = 0; snd.play().catch(() => {}); }
             } else if (type === 'flashbang') {
                 const img = document.getElementById('think-fast-img');
                 const snd = document.getElementById('flashbang-sound');
                 const overlay = document.getElementById('flashbang-overlay');
-                
                 img.style.display = "block";
                 setTimeout(() => {
                     img.style.display = "none";
-                    if (snd) {
-                        snd.currentTime = 0;
-                        snd.play().catch(e => console.log("Flashbang sound failed"));
-                    }
+                    if (snd) { snd.currentTime = 0; snd.play().catch(() => {}); }
                     overlay.style.transition = "none";
                     overlay.style.opacity = "1";
-                    setTimeout(() => {
-                        overlay.style.transition = "opacity 3s ease-out";
-                        overlay.style.opacity = "0";
-                    }, 5000);
+                    setTimeout(() => { overlay.style.transition = "opacity 3s ease-out"; overlay.style.opacity = "0"; }, 5000);
                 }, 500);
             } else if (type === 'freeze') {
                 console.warn("Client freeze command received.");
@@ -614,12 +667,9 @@
         window.triggerGlobal = async (type) => {
             if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
             if (type === 'freeze' && currentUserRole !== 'owner') return;
-            
             let confirmMsg = `Trigger GLOBAL ${type}?`;
             if (type === 'freeze') confirmMsg = "WARNING: This will FREEZE/CRASH all connected clients for 15s. Proceed?";
-            
-            if(!confirm(confirmMsg)) return;
-            
+            if (!confirm(confirmMsg)) return;
             try {
                 await setDoc(doc(db, "interactions", "global"), { type, sentAt: serverTimestamp() });
                 showStatus(`GLOBAL ${type} SENT`);
@@ -633,7 +683,6 @@
             list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>loading users...</p>";
 
             unsubscribeUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-                const countBadge = document.getElementById('user-count-badge');
                 list.innerHTML = "";
                 let count = 0;
 
@@ -641,11 +690,10 @@
                     const u = docSnap.data();
                     count++;
                     const isSelf = u.uid === currentUserId;
-
                     const div = document.createElement('div');
                     div.className = "user-row";
                     const statusClass = u.isOnline ? 'status-online' : 'status-offline';
-                    
+
                     let authButtonsHtml = '';
                     if (currentUserRole === 'owner') {
                         authButtonsHtml = `
@@ -656,8 +704,7 @@
                                 <button style="background:#000; color:white; border:none; border-radius:4px; padding:4px 8px; font-size:0.6rem; cursor:pointer;" onclick="window.toggleBan('${u.uid}',${!u.isBanned})">
                                     ${u.isBanned?'unban':'ban'}
                                 </button>
-                            </div>
-                        `;
+                            </div>`;
                     }
 
                     div.innerHTML = `
@@ -676,11 +723,9 @@
                             <button class="btn-fun btn-fun-danger" onclick="window.triggerFun('${u.uid}','flashbang')" title="Flashbang" style="border:none; border-radius:4px; cursor:pointer;">💣</button>
                             <button class="btn-fun" onclick="window.triggerFun('${u.uid}','scream')" title="SCREAM" style="background:red; border:none; border-radius:4px; cursor:pointer;">🔊</button>
                             ${currentUserRole === 'owner' ? `<button class="btn-fun btn-fun-critical" onclick="window.triggerFun('${u.uid}','freeze')" title="Freeze Client" style="border:none; border-radius:4px; cursor:pointer;">❄️</button>` : ''}
-                        </div>
-                    `;
+                        </div>`;
                     list.appendChild(div);
                 });
-                countBadge.innerText = count;
             });
         };
 
@@ -694,13 +739,24 @@
             await updateDoc(doc(db, "users", uid), { isBanned: banState }).catch(e => showStatus("Failed: " + e.message, true));
         };
 
+        // ── FIREBASE CONFIG LISTENERS ──
+        // Counter 1 → "config/timer" (keeps existing data)
         onSnapshot(doc(db, "config", "timer"), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
-                targetTime = new Date(data.targetTime).getTime();
-                document.getElementById('event-name').innerText = (data.eventName || "event").toLowerCase();
+                if (data.targetTime) targetTime1 = new Date(data.targetTime).getTime();
+                document.getElementById('event-name-1').innerText = (data.eventName || "event").toLowerCase();
                 globalTheme = data.theme || 'dark';
                 applyThemes();
+            }
+        });
+
+        // Counter 2 → "config/timer2"
+        onSnapshot(doc(db, "config", "timer2"), (snap) => {
+            if (snap.exists()) {
+                const data = snap.data();
+                if (data.targetTime) targetTime2 = new Date(data.targetTime).getTime();
+                document.getElementById('event-name-2').innerText = (data.eventName || "event 2").toLowerCase();
             }
         });
 
@@ -720,92 +776,116 @@
             await setDoc(doc(db, "config", "timer"), { theme: next }, { merge: true });
         };
 
-        window.updateTimer = async () => {
-            const dateVal = document.getElementById('date-input').value;
-            const nameVal = document.getElementById('name-input').value;
-            if (!dateVal || !nameVal) return;
-            await setDoc(doc(db, "config", "timer"), { targetTime: dateVal, eventName: nameVal.toLowerCase() }, { merge: true });
-            showStatus("Config updated.");
+        // updateTimer(1) → writes to "timer", updateTimer(2) → writes to "timer2"
+        window.updateTimer = async (n) => {
+            const dateVal = document.getElementById(`date-input-${n}`).value;
+            const nameVal = document.getElementById(`name-input-${n}`).value;
+            if (!dateVal || !nameVal) { showStatus(`fill in both fields for counter ${n}.`, true); return; }
+            const configKey = n === 1 ? 'timer' : 'timer2';
+            await setDoc(doc(db, "config", configKey), { targetTime: dateVal, eventName: nameVal.toLowerCase() }, { merge: true });
+            showStatus(`counter ${n} updated.`);
         };
 
         window.sendBroadcast = async () => {
-            const input = document.getElementById('broadcast-input');
+            const input    = document.getElementById('broadcast-input');
             const durInput = document.getElementById('broadcast-duration');
-            const text = input.value;
+            const text     = input.value;
             if (!text) return;
             const duration = parseFloat(durInput.value) || 5;
             input.value = "";
             const sender = auth.currentUser.displayName || auth.currentUser.email.split('@')[0];
-            
             try {
                 await addDoc(collection(db, "broadcasts"), { text, sender, duration, sentAt: new Date().toISOString() });
                 showStatus("Broadcast sent!");
-            } catch (e) {
-                console.error("Broadcast Error:", e);
-                showStatus("Error: " + e.message, true);
-            }
+            } catch (e) { showStatus("Error: " + e.message, true); }
         };
 
-        const panel = document.getElementById("admin-panel");
+        // Draggable panel
+        const panel  = document.getElementById("admin-panel");
         const header = document.getElementById("admin-header");
-        let isDragging = false; let offset = { x: 0, y: 0 };
+        let isDragging = false, offset = { x: 0, y: 0 };
         header.onmousedown = (e) => { isDragging = true; offset.x = e.clientX - panel.offsetLeft; offset.y = e.clientY - panel.offsetTop; };
         document.onmousemove = (e) => {
             if (!isDragging) return;
-            panel.style.left = (e.clientX - offset.x) + "px"; panel.style.top = (e.clientY - offset.y) + "px";
+            panel.style.left = (e.clientX - offset.x) + "px";
+            panel.style.top  = (e.clientY - offset.y) + "px";
             panel.style.right = "auto"; panel.style.bottom = "auto";
         };
         document.onmouseup = () => isDragging = false;
 
-        setInterval(() => {
+        // ── COUNTDOWN ENGINE (shared helper for both counters) ──
+        function calcCountdown(n, targetTime) {
             if (!targetTime) return;
-            const now = new Date();
+            const now    = new Date();
             const target = new Date(targetTime);
-            const diff = target - now;
+            const diff   = target - now;
+
+            const fields = ['months','days','hours','minutes','seconds'];
+
             if (diff <= 0) {
-                document.getElementById('event-name').innerText = "event live";
-                ['months','days','hours','minutes','seconds'].forEach(id => document.getElementById(id).innerText = "00");
+                document.getElementById(`event-name-${n}`).innerText = "event live";
+                fields.forEach(id => { document.getElementById(`${id}-${n}`).innerText = "00"; });
                 return;
             }
+
             let m = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
             let tempDate = new Date(now);
             tempDate.setMonth(now.getMonth() + m);
             if (tempDate > target) { m--; tempDate = new Date(now); tempDate.setMonth(now.getMonth() + m); }
+
             const dayDiff = Math.floor((target - tempDate) / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const hours   = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-            document.getElementById('months').innerText = m.toString().padStart(2, '0');
-            document.getElementById('days').innerText = dayDiff.toString().padStart(2, '0');
-            document.getElementById('hours').innerText = hours.toString().padStart(2, '0');
-            document.getElementById('minutes').innerText = minutes.toString().padStart(2, '0');
-            document.getElementById('seconds').innerText = seconds.toString().padStart(2, '0');
+
+            document.getElementById(`months-${n}`).innerText  = m.toString().padStart(2, '0');
+            document.getElementById(`days-${n}`).innerText    = dayDiff.toString().padStart(2, '0');
+            document.getElementById(`hours-${n}`).innerText   = hours.toString().padStart(2, '0');
+            document.getElementById(`minutes-${n}`).innerText = minutes.toString().padStart(2, '0');
+            document.getElementById(`seconds-${n}`).innerText = seconds.toString().padStart(2, '0');
+        }
+
+        setInterval(() => {
+            calcCountdown(1, targetTime1);
+            calcCountdown(2, targetTime2);
         }, 1000);
 
+        // ── PARTICLE SYSTEM ──
         const canvas = document.getElementById('particle-canvas');
-        const ctx = canvas.getContext('2d');
+        const ctx    = canvas.getContext('2d');
         let particles = [];
+
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.onresize = resize; resize();
+        window.onresize = resize;
+        resize();
+
         class Particle {
             constructor() {
-                this.x = Math.random() * canvas.width;
-                this.y = Math.random() * canvas.height;
-                this.size = Math.random() * 6 + 2;
+                this.x     = Math.random() * canvas.width;
+                this.y     = Math.random() * canvas.height;
+                this.size  = Math.random() * 6 + 2;
                 this.speed = Math.random() * 0.12 + 0.05;
                 this.angle = Math.random() * 360;
-                this.rot = Math.random() * 0.5 - 0.25;
+                this.rot   = Math.random() * 0.5 - 0.25;
             }
-            update() { this.y -= this.speed; this.angle += this.rot; if (this.y < -this.size) this.y = canvas.height + this.size; }
+            update() {
+                this.y -= this.speed;
+                this.angle += this.rot;
+                if (this.y < -this.size) this.y = canvas.height + this.size;
+            }
             draw() {
-                ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle * Math.PI / 180);
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle * Math.PI / 180);
                 const color = getComputedStyle(document.body).getPropertyValue('--particle-color');
                 ctx.fillStyle = `rgba(${color}, 0.1)`;
-                ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
                 ctx.restore();
             }
         }
+
         for (let i = 0; i < 35; i++) particles.push(new Particle());
+
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             particles.forEach(p => { p.update(); p.draw(); });
