@@ -109,10 +109,40 @@ input{width:100%;padding:8px;margin:5px 0;border:1px solid rgba(128,128,128,.3);
 .lb-score{font-size:.8rem;font-weight:900;opacity:.9;letter-spacing:.5px;}
 .lb-you{color:#2ed573;}
 #lb-empty{font-size:.7rem;opacity:.4;text-align:center;padding:30px 0;}
+
+/* LOADING SCREEN */
+#loader{position:fixed;inset:0;background:var(--bg);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s ease;}
+#loader.fade{opacity:0;pointer-events:none;}
+#loader-title{font-size:1.4rem;font-weight:900;letter-spacing:-1px;margin-bottom:1.8rem;opacity:.9;}
+#loader-bar-wrap{width:180px;height:2px;background:rgba(128,128,128,.2);border-radius:2px;overflow:hidden;}
+#loader-bar{height:100%;width:0%;background:var(--text);border-radius:2px;transition:width .25s ease;}
+#loader-hint{font-size:.6rem;font-weight:700;opacity:.35;margin-top:14px;letter-spacing:1px;}
+
+/* IMAGE LAYER */
+#image-layer{position:fixed;inset:0;z-index:3;pointer-events:none;}
+.page-img{position:fixed;user-select:none;pointer-events:none;line-height:0;}
+.page-img img{display:block;width:100%;height:auto;border-radius:4px;}
+.is-owner .page-img{pointer-events:auto;cursor:move;}
+.img-del-btn{position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;background:#ff4757;color:#fff;border:none;cursor:pointer;font-size:.8rem;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;z-index:5;line-height:1;padding:0;}
+.is-owner .page-img:hover .img-del-btn{opacity:1;}
+.img-resize-handle{position:absolute;bottom:-4px;right:-4px;width:14px;height:14px;background:rgba(255,255,255,.7);cursor:se-resize;border-radius:3px;border:1px solid rgba(0,0,0,.3);opacity:0;z-index:5;transition:opacity .15s;}
+.is-owner .page-img:hover .img-resize-handle{opacity:1;}
+/* image admin section */
+.img-admin-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(128,128,128,.1);font-size:.65rem;font-weight:700;opacity:.8;}
+.img-admin-row button{background:#ff4757;color:#fff;border:none;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:.6rem;}
+/* delete counter btn */
+.del-counter-btn{float:right;background:#ff4757;color:#fff;border:none;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:.6rem;margin-bottom:4px;}
 </style>
 </head>
 <body data-theme="dark">
 
+
+<div id="loader">
+  <div id="loader-title">event countdown</div>
+  <div id="loader-bar-wrap"><div id="loader-bar"></div></div>
+  <div id="loader-hint">loading assets...</div>
+</div>
+<div id="image-layer"></div>
 <canvas id="particle-canvas"></canvas>
 <div id="flashbang-overlay"></div>
 <img id="think-fast-img" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/thinkfastchucklenuts.png?raw=true" alt="">
@@ -215,6 +245,17 @@ input{width:100%;padding:8px;margin:5px 0;border:1px solid rgba(128,128,128,.3);
         <button onclick="window.setupUserObserver()" style="background:none;border:none;color:inherit;font-size:.6rem;text-decoration:underline;cursor:pointer;">refresh</button>
       </h3>
       <div id="user-list"><p style="font-size:.7rem;opacity:.5;">connecting...</p></div>
+    </div>
+
+    <div id="images-section" style="display:none;margin-top:15px;">
+      <h3 style="font-size:.8rem;border-bottom:1px solid #444;padding-bottom:4px;">live images</h3>
+      <input type="text" id="img-url-input" placeholder="paste image url...">
+      <button onclick="window.addImageFromURL()" style="width:100%;font-weight:900;background:var(--text);color:var(--bg);border:none;padding:7px;border-radius:6px;cursor:pointer;margin-bottom:6px;font-family:inherit;">add from url</button>
+      <label style="display:block;width:100%;font-weight:900;background:rgba(128,128,128,.15);border:1px dashed rgba(128,128,128,.3);padding:7px;border-radius:6px;cursor:pointer;text-align:center;font-size:.7rem;">
+        upload file <input type="file" id="img-file-input" accept="image/*" style="display:none;" onchange="window.addImageFromFile(this)">
+      </label>
+      <div style="font-size:.55rem;opacity:.3;margin:5px 0 8px;">drag on page to position · corner to resize</div>
+      <div id="img-admin-list"></div>
     </div>
   </div>
 </div>
@@ -409,15 +450,9 @@ async function updateWeather(){
 }
 updateWeather(); setInterval(updateWeather,600000);
 
-// unlock audio on first click
+// audio pre-unlock for fx sounds on first interaction
 document.addEventListener('click',()=>{
   if(audioUnlocked) return; audioUnlocked=true;
-  const tick=document.getElementById('tick-sound');
-  tick.volume=0.18;
-  tick.play().catch(()=>{});
-  const amb=document.getElementById('ambient-sound');
-  amb.volume=0.06;
-  amb.play().catch(()=>{});
   [document.getElementById('flashbang-sound'),document.getElementById('scream-sound')].forEach(s=>{
     s.play().then(()=>{s.pause();s.currentTime=0;}).catch(()=>{});
   });
@@ -485,6 +520,8 @@ onAuthStateChanged(auth,async user=>{
       if(role==='owner'){
         document.getElementById('owner-freeze-btn').style.display='block';
         document.getElementById('add-counter-section').style.display='block';
+        document.getElementById('images-section').style.display='block';
+        document.body.classList.add('is-owner');
         if(Notification.permission!=='granted'&&Notification.permission!=='denied') document.getElementById('notif-banner').style.display='block';
         onSnapshot(collection(db,'users'),snap=>{
           const online=snap.docs.filter(d=>d.data().isOnline&&d.id!==user.uid);
@@ -505,7 +542,7 @@ onAuthStateChanged(auth,async user=>{
   } else {
     loginBtn.style.display='block'; logoutBtn.style.display='none';
     userInfo.innerText=''; panel.style.display='none';
-    currentUserRole='member'; currentUserId=null;
+    currentUserRole='member'; currentUserId=null; document.body.classList.remove('is-owner');
   }
 });
 
@@ -766,6 +803,178 @@ let gdrag={on:false,ox:0,oy:0};
 gameHdr.onmousedown=e=>{ gdrag.on=true; gdrag.ox=e.clientX-gamePanel.offsetLeft; gdrag.oy=e.clientY-gamePanel.offsetTop; e.preventDefault(); };
 document.addEventListener('mousemove',e=>{ if(!gdrag.on) return; gamePanel.style.left=(e.clientX-gdrag.ox)+'px'; gamePanel.style.top=(e.clientY-gdrag.oy)+'px'; gamePanel.style.bottom='auto'; });
 document.addEventListener('mouseup',()=>{ gdrag.on=false; });
+
+
+// ── LOADING SCREEN ──
+(function(){
+  const bar=document.getElementById('loader-bar');
+  const hint=document.getElementById('loader-hint');
+  const steps=['initializing...','connecting to firebase...','loading sounds...','almost there...'];
+  let pct=0, si=0;
+  const iv=setInterval(()=>{
+    pct+=Math.random()*18+5;
+    if(pct>95) pct=95;
+    bar.style.width=pct+'%';
+    hint.innerText=steps[Math.min(si++,steps.length-1)];
+  },400);
+  // finish after fonts+firebase settle
+  window.addEventListener('load',()=>{
+    setTimeout(()=>{
+      clearInterval(iv);
+      bar.style.width='100%';
+      hint.innerText='ready.';
+      setTimeout(()=>{
+        const loader=document.getElementById('loader');
+        loader.classList.add('fade');
+        setTimeout(()=>loader.remove(),900);
+        // start audio now
+        const tick=document.getElementById('tick-sound');
+        const amb=document.getElementById('ambient-sound');
+        tick.volume=0.18; tick.play().catch(()=>{});
+        amb.volume=0.06;  amb.play().catch(()=>{});
+      },400);
+    },1200);
+  });
+})();
+
+// ── DELETE COUNTER (owner only) ──
+window.deleteCounter=async(n)=>{
+  if(currentUserRole!=='owner') return;
+  if(!confirm(`remove counter ${n}? this deletes its config.`)) return;
+  const key=n===1?'timer':`timer${n}`;
+  await deleteDoc(doc(db,'config',key)).catch(()=>{});
+  // decrement count in meta
+  const newCount=counterCount-1;
+  if(newCount<=0){ await setDoc(doc(db,'config','timers_meta'),{count:1}); }
+  else { await setDoc(doc(db,'config','timers_meta'),{count:newCount}); }
+  // remove from DOM
+  const slide=document.getElementById(`slide-${n}`);
+  const prev=slide?.previousElementSibling;
+  if(prev?.classList.contains('counter-divider')) prev.remove();
+  slide?.remove();
+  const ccBlock=document.getElementById(`cc-${n}`);
+  ccBlock?.remove();
+  if(activeIdx>=counterCount-1) activeIdx=Math.max(0,counterCount-2);
+  showStatus(`counter ${n} removed.`);
+};
+
+// ── LIVE IMAGES ──
+const imgThrottle={};
+
+onSnapshot(collection(db,'images'),snap=>{
+  // remove deleted
+  document.querySelectorAll('.page-img').forEach(el=>{
+    if(!snap.docs.find(d=>d.id===el.dataset.iid)) el.remove();
+  });
+  snap.docs.forEach(ds=>{
+    const d=ds.data();
+    let el=document.getElementById('pimg-'+ds.id);
+    if(!el){
+      el=buildImgEl(ds.id,d);
+      document.getElementById('image-layer').appendChild(el);
+    } else if(!el.dataset.dragging){
+      el.style.left=d.x+'%';
+      el.style.top=d.y+'%';
+      el.style.width=d.w+'px';
+      el.style.zIndex=d.z||3;
+    }
+  });
+  // update admin list
+  const adminList=document.getElementById('img-admin-list');
+  if(adminList){
+    adminList.innerHTML='';
+    snap.docs.forEach(ds=>{
+      const d=ds.data();
+      const row=document.createElement('div'); row.className='img-admin-row';
+      const name=(d.name||ds.id).substring(0,22);
+      row.innerHTML=`<span>${name}</span><button onclick="window.deleteImage('${ds.id}')">remove</button>`;
+      adminList.appendChild(row);
+    });
+    if(!snap.docs.length) adminList.innerHTML='<div style="font-size:.6rem;opacity:.3;padding:6px 0;">no images placed yet</div>';
+  }
+});
+
+function buildImgEl(id,d){
+  const wrap=document.createElement('div');
+  wrap.className='page-img'; wrap.id='pimg-'+id; wrap.dataset.iid=id;
+  wrap.style.cssText=`left:${d.x}%;top:${d.y}%;width:${d.w}px;z-index:${d.z||3};`;
+  const img=document.createElement('img');
+  img.src=d.url; img.draggable=false;
+  img.style='width:100%;height:auto;display:block;border-radius:4px;pointer-events:none;';
+  wrap.appendChild(img);
+  // delete btn (owner only via CSS .is-owner)
+  const del=document.createElement('button'); del.className='img-del-btn'; del.innerText='×';
+  del.onclick=e=>{e.stopPropagation();window.deleteImage(id);};
+  wrap.appendChild(del);
+  // resize handle
+  const rh=document.createElement('div'); rh.className='img-resize-handle';
+  wrap.appendChild(rh);
+  // drag
+  wrap.addEventListener('mousedown',e=>{
+    if(currentUserRole!=='owner') return;
+    if(e.target===rh) return;
+    e.preventDefault(); wrap.dataset.dragging='1';
+    const sx=e.clientX, sy=e.clientY;
+    const sl=wrap.offsetLeft, st=wrap.offsetTop;
+    const onMove=e=>{
+      const nx=sl+(e.clientX-sx), ny=st+(e.clientY-sy);
+      const xp=(nx/window.innerWidth)*100, yp=(ny/window.innerHeight)*100;
+      wrap.style.left=xp+'%'; wrap.style.top=yp+'%';
+      clearTimeout(imgThrottle[id]);
+      imgThrottle[id]=setTimeout(()=>updateDoc(doc(db,'images',id),{x:parseFloat(xp.toFixed(2)),y:parseFloat(yp.toFixed(2))}).catch(()=>{}),80);
+    };
+    const onUp=()=>{
+      delete wrap.dataset.dragging;
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+      const r=wrap.getBoundingClientRect();
+      updateDoc(doc(db,'images',id),{x:parseFloat(((r.left/window.innerWidth)*100).toFixed(2)),y:parseFloat(((r.top/window.innerHeight)*100).toFixed(2))}).catch(()=>{});
+    };
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+  // resize
+  rh.addEventListener('mousedown',e=>{
+    if(currentUserRole!=='owner') return;
+    e.preventDefault(); e.stopPropagation();
+    const sx=e.clientX, sw=wrap.offsetWidth;
+    const onMove=e=>{ wrap.style.width=Math.max(40,sw+(e.clientX-sx))+'px'; };
+    const onUp=()=>{
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+      updateDoc(doc(db,'images',id),{w:wrap.offsetWidth}).catch(()=>{});
+    };
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+  return wrap;
+}
+
+window.deleteImage=async(id)=>{
+  if(currentUserRole!=='owner') return;
+  await deleteDoc(doc(db,'images',id)).catch(()=>{});
+};
+
+window.addImageFromURL=async()=>{
+  if(currentUserRole!=='owner') return;
+  const inp=document.getElementById('img-url-input');
+  const url=inp.value.trim(); if(!url) return; inp.value='';
+  await addDoc(collection(db,'images'),{url,x:10,y:10,w:280,z:3,name:url.split('/').pop().substring(0,20),createdAt:serverTimestamp()});
+  showStatus('image added!');
+};
+
+window.addImageFromFile=async(input)=>{
+  if(currentUserRole!=='owner') return;
+  const file=input.files[0]; if(!file) return;
+  if(file.size>800000){showStatus('file too big (max ~800kb)');input.value='';return;}
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    await addDoc(collection(db,'images'),{url:e.target.result,x:10,y:10,w:280,z:3,name:file.name.substring(0,20),createdAt:serverTimestamp()});
+    showStatus('image uploaded!');
+    input.value='';
+  };
+  reader.readAsDataURL(file);
+};
 
 // ── PARTICLES ──
 const pCvs=document.getElementById('particle-canvas');
