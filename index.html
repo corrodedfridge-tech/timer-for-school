@@ -1,831 +1,697 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>event countdown</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #1a1a1c;
-            --text: #e0e0e0;
-            --accent: #ffffff;
-            --shadow: rgba(0, 0, 0, 0.4);
-            --particle-color: 255, 255, 255;
-            --panel-bg: #2a2a2e;
-            --input-bg: #111;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>event countdown</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1a1a1c;--text:#e0e0e0;--shadow:rgba(0,0,0,0.4);--particle-color:255,255,255;--panel-bg:#2a2a2e;--input-bg:#111;}
+[data-theme="light"]{--bg:#ffffff;--text:#000000;--shadow:rgba(0,0,0,0.05);--particle-color:0,0,0;--panel-bg:#f0f0f0;--input-bg:#ffffff;}
 
-        [data-theme="light"] {
-            --bg: #ffffff;
-            --text: #000000;
-            --accent: #000000;
-            --shadow: rgba(0, 0, 0, 0.05);
-            --particle-color: 0, 0, 0;
-            --panel-bg: #f0f0f0;
-            --input-bg: #ffffff;
-        }
+*{box-sizing:border-box;}
+body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);margin:0;padding:0;overflow:hidden;min-height:100vh;text-transform:lowercase;transition:background-color .8s,color .8s,filter .5s;}
 
-        body {
-            font-family: 'Roboto', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 2rem 0;
-            overflow-x: hidden;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            text-transform: lowercase;
-            transition: background-color 0.8s ease, color 0.8s ease, filter 0.5s ease;
-            box-sizing: border-box;
-        }
+#particle-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;}
+#flashbang-overlay{position:fixed;inset:0;background:#fff;z-index:9999;opacity:0;pointer-events:none;transition:opacity 3s ease-out;}
+#think-fast-img{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;display:none;pointer-events:none;max-width:80%;}
 
-        /* --- INFO HEADER --- */
-        #top-info {
-            position: fixed;
-            top: 15px; right: 20px;
-            text-align: right;
-            font-size: 0.7rem;
-            font-weight: 700;
-            opacity: 0.8;
-            line-height: 1.4;
-            z-index: 1001;
-            pointer-events: none;
-        }
-        #top-info span { display: block; }
+#top-info{position:fixed;top:15px;right:20px;text-align:right;font-size:.7rem;font-weight:700;opacity:.8;line-height:1.4;z-index:200;pointer-events:none;}
+#top-info span{display:block;}
 
-        /* --- EFFECTS --- */
-        .shake-active { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both infinite; }
-        @keyframes shake {
-            10%, 90% { transform: translate3d(-1px, 0, 0); }
-            20%, 80% { transform: translate3d(2px, 0, 0); }
-            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-            40%, 60% { transform: translate3d(4px, 0, 0); }
-        }
-        .invert-active { filter: invert(1) hue-rotate(180deg); }
-        .glitch-active { animation: glitch 0.2s infinite; }
-        @keyframes glitch {
-            0%   { transform: translate(2px, 1px) rotate(0deg);   filter: hue-rotate(90deg); }
-            20%  { transform: translate(-1px, -2px) rotate(1deg); }
-            40%  { transform: translate(-3px, 0px) rotate(-1deg); filter: invert(0.5); }
-            60%  { transform: translate(3px, 2px) rotate(0deg); }
-            80%  { transform: translate(1px, -1px) rotate(-1deg); }
-            100% { transform: translate(-1px, 2px) rotate(0deg); }
-        }
+#notif-banner{position:fixed;top:0;left:0;width:100%;background:#ffd700;color:#000;padding:10px;text-align:center;font-weight:900;font-size:.75rem;z-index:5000;display:none;cursor:pointer;}
 
-        #flashbang-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: white; z-index: 9999; opacity: 0;
-            pointer-events: none; transition: opacity 3s ease-out;
-        }
-        #think-fast-img {
-            position: fixed; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 10000; display: none; pointer-events: none; max-width: 80%;
-        }
+#broadcast-container{position:fixed;top:20px;width:100%;display:flex;flex-direction:column;align-items:center;pointer-events:none;z-index:1000;}
+.broadcast-msg{background:rgba(128,128,128,.2);padding:8px 20px;border-radius:20px;margin-bottom:8px;font-size:.85rem;font-weight:700;animation:fadeInOut forwards;backdrop-filter:blur(10px);border:1px solid rgba(128,128,128,.1);color:var(--text);}
+.visitor-notification{background:#2ed573!important;color:#000!important;}
+@keyframes fadeInOut{0%{opacity:0;transform:translateY(-10px)}10%{opacity:1;transform:translateY(0)}90%{opacity:1}100%{opacity:0;transform:translateY(-20px)}}
 
-        #particle-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+/* EFFECTS */
+.shake-active{animation:shake .5s cubic-bezier(.36,.07,.19,.97) both infinite;}
+@keyframes shake{10%,90%{transform:translate3d(-1px,0,0)}20%,80%{transform:translate3d(2px,0,0)}30%,50%,70%{transform:translate3d(-4px,0,0)}40%,60%{transform:translate3d(4px,0,0)}}
+.invert-active{filter:invert(1) hue-rotate(180deg);}
+.glitch-active{animation:glitch .2s infinite;}
+@keyframes glitch{0%{transform:translate(2px,1px) rotate(0deg);filter:hue-rotate(90deg)}20%{transform:translate(-1px,-2px) rotate(1deg)}40%{transform:translate(-3px,0) rotate(-1deg);filter:invert(.5)}60%{transform:translate(3px,2px) rotate(0deg)}80%{transform:translate(1px,-1px) rotate(-1deg)}100%{transform:translate(-1px,2px) rotate(0deg)}}
 
-        #broadcast-container {
-            position: fixed; top: 20px; width: 100%;
-            display: flex; flex-direction: column; align-items: center;
-            pointer-events: none; z-index: 1000;
-        }
-        .broadcast-msg {
-            background: rgba(128,128,128,0.2);
-            padding: 8px 20px; border-radius: 20px; margin-bottom: 8px;
-            font-size: 0.85rem; font-weight: 700;
-            animation: fadeInOut forwards;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(128,128,128,0.1);
-            color: var(--text);
-        }
-        .visitor-notification { background: #2ed573 !important; color: #000 !important; }
-        @keyframes fadeInOut {
-            0%   { opacity: 0; transform: translateY(-10px); }
-            10%  { opacity: 1; transform: translateY(0); }
-            90%  { opacity: 1; }
-            100% { opacity: 0; transform: translateY(-20px); }
-        }
+/* CAROUSEL */
+#carousel-track{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;pointer-events:none;}
+.counter-slide{position:absolute;display:flex;flex-direction:column;align-items:center;text-align:center;pointer-events:auto;transition:transform .55s cubic-bezier(.4,0,.2,1),opacity .55s ease,filter .55s ease;will-change:transform,opacity,filter;}
+h1{font-size:1.8rem;font-weight:700;margin:0 0 1.2rem;text-shadow:0 0 8px var(--shadow);letter-spacing:-1px;}
+.timer-container{display:flex;gap:15px;text-align:center;flex-wrap:wrap;justify-content:center;}
+.unit-group{display:flex;flex-direction:column;align-items:center;min-width:70px;}
+.number{font-size:3.2rem;font-weight:900;line-height:1;text-shadow:0 0 10px var(--shadow);}
+.label{font-size:.7rem;font-weight:700;margin-top:5px;opacity:.5;}
 
-        /* --- COUNTERS --- */
-        #counters-wrapper {
-            display: flex; flex-direction: column; align-items: center; width: 100%;
-        }
-        .counter-section { display: flex; flex-direction: column; align-items: center; }
-        .counter-divider {
-            width: 180px; height: 1px;
-            background: rgba(128,128,128,0.2); margin: 1.6rem 0;
-        }
+/* CAROUSEL ARROWS */
+.c-arrow{position:fixed;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text);font-size:1.6rem;opacity:.2;cursor:pointer;z-index:50;padding:20px 16px;transition:opacity .2s;font-family:inherit;}
+.c-arrow:hover{opacity:.7;}
+.c-arrow:disabled{opacity:.04;cursor:default;}
+#arrow-l{left:8px;}
+#arrow-r{right:8px;}
 
-        h1 {
-            font-size: 1.8rem; font-weight: 700;
-            margin: 0 0 1.2rem 0;
-            text-shadow: 0px 0px 8px var(--shadow);
-            letter-spacing: -1px; text-align: center;
-        }
-        .timer-container {
-            display: flex; gap: 15px; text-align: center;
-            flex-wrap: wrap; justify-content: center;
-        }
-        .unit-group { display: flex; flex-direction: column; align-items: center; min-width: 70px; }
-        .number { font-size: 3.2rem; font-weight: 900; line-height: 1; text-shadow: 0px 0px 10px var(--shadow); }
-        .label { font-size: 0.7rem; font-weight: 700; margin-top: 5px; opacity: 0.5; }
+/* CAROUSEL DOTS */
+#carousel-dots{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:50;align-items:center;}
+.c-dot{width:5px;height:5px;border-radius:50%;background:var(--text);opacity:.2;cursor:pointer;border:none;transition:opacity .3s,transform .3s;}
+.c-dot.on{opacity:.85;transform:scale(1.6);}
 
-        /* --- ADMIN PANEL --- */
-        #admin-panel {
-            display: none;
-            position: fixed; bottom: 20px; right: 20px;
-            background: var(--panel-bg); color: var(--text);
-            width: 360px; border-radius: 12px; z-index: 2000;
-            text-transform: none;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            border: 1px solid rgba(128,128,128,0.2);
-            overflow: hidden; max-height: 85vh;
-            flex-direction: column;
-        }
-        #admin-header {
-            padding: 12px; background: rgba(0,0,0,0.2); cursor: move;
-            font-size: 0.75rem; font-weight: 900;
-            display: flex; justify-content: space-between; align-items: center;
-            flex-shrink: 0; user-select: none;
-        }
-        #admin-content { padding: 15px; overflow-y: auto; }
+/* AUTH */
+.auth-controls{position:fixed;bottom:20px;left:20px;display:flex;flex-direction:column;gap:8px;z-index:100;}
 
-        .btn-fun { font-size: 0.55rem; padding: 4px 6px; background: #444; color: white; font-weight: bold; margin-right: 2px; }
-        .btn-fun-danger { background: #ff9f43; color: black; }
-        .btn-fun-critical { background: #ff4757; color: white; }
-        .user-row { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+/* ADMIN PANEL */
+#admin-panel{display:none;position:fixed;bottom:20px;right:20px;background:var(--panel-bg);color:var(--text);width:360px;border-radius:12px;z-index:2000;text-transform:none;box-shadow:0 10px 40px rgba(0,0,0,.5);border:1px solid rgba(128,128,128,.2);overflow:hidden;max-height:85vh;flex-direction:column;}
+#admin-header{padding:12px;background:rgba(0,0,0,.2);cursor:move;font-size:.75rem;font-weight:900;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;user-select:none;}
+#admin-content{padding:15px;overflow-y:auto;}
+.btn-fun{font-size:.55rem;padding:4px 6px;background:#444;color:#fff;font-weight:bold;margin-right:2px;}
+.btn-fun-danger{background:#ff9f43;color:#000;}
+.btn-fun-critical{background:#ff4757;color:#fff;}
+.user-row{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+input{width:100%;padding:8px;margin:5px 0;border:1px solid rgba(128,128,128,.3);background:var(--input-bg);color:var(--text);border-radius:6px;box-sizing:border-box;font-family:inherit;}
+.role-badge{font-size:.55rem;padding:2px 6px;border-radius:4px;font-weight:900;}
+.role-owner{background:#ffd700;color:#000;}
+.role-admin{background:#00d2ff;color:#000;}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;}
+.status-online{background:#2ed573;box-shadow:0 0 5px #2ed573;}
+.status-offline{background:#747d8c;}
+.cc-label{font-size:.6rem;font-weight:900;opacity:.45;letter-spacing:2px;text-transform:uppercase;margin-bottom:2px;display:block;}
+.cc-block{margin-bottom:14px;}
+.cc-block+.cc-block{border-top:1px solid rgba(128,128,128,.15);padding-top:12px;}
+#add-counter-btn{width:100%;background:transparent;color:#ffd700;border:1px dashed rgba(255,215,0,.4);padding:8px;border-radius:6px;cursor:pointer;font-weight:900;font-size:.75rem;transition:background .2s,border-color .2s;font-family:inherit;text-transform:lowercase;}
+#add-counter-btn:hover{background:rgba(255,215,0,.08);border-color:rgba(255,215,0,.7);}
 
-        input {
-            width: 100%; padding: 8px; margin: 5px 0;
-            border: 1px solid rgba(128,128,128,0.3);
-            background: var(--input-bg); color: var(--text);
-            border-radius: 6px; box-sizing: border-box;
-        }
-        .role-badge { font-size: 0.55rem; padding: 2px 6px; border-radius: 4px; font-weight: 900; }
-        .role-owner { background: #ffd700; color: #000; }
-        .role-admin { background: #00d2ff; color: #000; }
-
-        .auth-controls {
-            position: fixed; bottom: 20px; left: 20px;
-            display: flex; flex-direction: column; gap: 8px;
-        }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
-        .status-online  { background: #2ed573; box-shadow: 0 0 5px #2ed573; }
-        .status-offline { background: #747d8c; }
-
-        #notif-banner {
-            position: fixed; top: 0; left: 0; width: 100%;
-            background: #ffd700; color: #000;
-            padding: 10px; text-align: center;
-            font-weight: 900; font-size: 0.75rem;
-            z-index: 5000; display: none; cursor: pointer;
-        }
-
-        /* Counter config blocks in admin panel */
-        .counter-config-label {
-            font-size: 0.6rem; font-weight: 900; opacity: 0.45;
-            letter-spacing: 2px; text-transform: uppercase;
-            margin-bottom: 2px; display: block;
-        }
-        .counter-config-block { margin-bottom: 14px; }
-        .counter-config-block + .counter-config-block {
-            border-top: 1px solid rgba(128,128,128,0.15); padding-top: 12px;
-        }
-
-        /* Owner-only "add counter" button */
-        #add-counter-btn {
-            width: 100%;
-            background: transparent;
-            color: #ffd700;
-            border: 1px dashed rgba(255,215,0,0.4);
-            padding: 8px; border-radius: 6px; cursor: pointer;
-            font-weight: 900; font-size: 0.75rem;
-            letter-spacing: 0.5px;
-            transition: background 0.2s, border-color 0.2s;
-            text-transform: lowercase; font-family: inherit;
-        }
-        #add-counter-btn:hover {
-            background: rgba(255,215,0,0.08);
-            border-color: rgba(255,215,0,0.7);
-        }
-    </style>
+/* MINI GAME */
+#game-btn{position:fixed;bottom:78px;left:20px;background:none;border:1px solid rgba(128,128,128,.25);color:var(--text);border-radius:8px;padding:5px 10px;font-size:.95rem;cursor:pointer;z-index:200;opacity:.55;transition:opacity .2s,background .2s;}
+#game-btn:hover{opacity:1;background:rgba(128,128,128,.1);}
+#game-panel{display:none;position:fixed;bottom:118px;left:20px;background:var(--panel-bg);border:1px solid rgba(128,128,128,.2);border-radius:12px;overflow:hidden;z-index:1500;box-shadow:0 10px 40px rgba(0,0,0,.5);}
+#game-hdr{padding:8px 12px;background:rgba(0,0,0,.3);font-size:.7rem;font-weight:900;display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;}
+#game-hdr button{background:none;border:none;color:var(--text);cursor:pointer;font-size:.9rem;line-height:1;padding:0;opacity:.6;}
+#game-hdr button:hover{opacity:1;}
+#game-canvas{display:block;}
+#game-hint{text-align:center;font-size:.6rem;opacity:.35;padding:4px 0 6px;font-weight:700;}
+</style>
 </head>
 <body data-theme="dark">
 
-    <div id="top-info">
-        <span id="live-clock">loading...</span>
-        <span id="live-weather">philadelphia: --°f</span>
+<canvas id="particle-canvas"></canvas>
+<div id="flashbang-overlay"></div>
+<img id="think-fast-img" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/thinkfastchucklenuts.png?raw=true" alt="">
+
+<audio id="tick-sound" loop preload="auto">
+  <source src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/dragon-studio-slow-cinematic-clock-ticking-357979%20(1).mp3?raw=true" type="audio/mpeg">
+</audio>
+<audio id="flashbang-sound" preload="auto">
+  <source src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/flashbang-gah-dayum.mp3?raw=true" type="audio/mpeg">
+</audio>
+<audio id="scream-sound" preload="auto">
+  <source src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/Screen%20recording%202026-01-13%204.07.40%20PM.mp3?raw=true" type="audio/mpeg">
+</audio>
+
+<div id="notif-banner" onclick="window.requestNotifPermission()">🔔 enable web notifications to get visitor alerts</div>
+<div id="broadcast-container"></div>
+
+<div id="top-info">
+  <span id="live-clock">loading...</span>
+  <span id="live-weather">philadelphia: --°f</span>
+</div>
+
+<!-- CAROUSEL -->
+<div id="carousel-track"></div>
+<button class="c-arrow" id="arrow-l" onclick="window.shiftCarousel(-1)">&#8592;</button>
+<button class="c-arrow" id="arrow-r" onclick="window.shiftCarousel(1)">&#8594;</button>
+<div id="carousel-dots"></div>
+
+<!-- AUTH -->
+<div class="auth-controls">
+  <div id="user-info"></div>
+  <button id="login-btn"  style="padding:6px 12px;font-size:.7rem;" onclick="window.login()">login / register</button>
+  <button id="logout-btn" style="display:none;padding:6px 12px;font-size:.7rem;" onclick="window.logout()">logout</button>
+  <button onclick="window.togglePersonalTheme()" style="background:none;border:none;color:inherit;font-size:1.2rem;cursor:pointer;">🌓</button>
+</div>
+
+<!-- MINI GAME BUTTON + PANEL -->
+<button id="game-btn" onclick="window.toggleGame()">🎮</button>
+<div id="game-panel">
+  <div id="game-hdr">
+    <span>void.dash</span>
+    <button onclick="window.toggleGame()">&#215;</button>
+  </div>
+  <canvas id="game-canvas" width="300" height="170"></canvas>
+  <div id="game-hint">space to start &nbsp;·&nbsp; w/s to move</div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="admin-panel">
+  <div id="admin-header">
+    <span>management panel</span>
+    <button onclick="window.toggleGlobalTheme()" style="font-size:.6rem;background:#ff4757;border:none;padding:2px 6px;border-radius:4px;color:#fff;">global theme</button>
+  </div>
+  <div id="admin-content">
+    <div id="status-display" style="display:none;font-size:.7rem;padding:5px;margin-bottom:10px;"></div>
+    <div id="timer-section">
+      <h3>event config</h3>
+      <div id="counter-configs"></div>
+      <div id="add-counter-section" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgba(128,128,128,.15);">
+        <button id="add-counter-btn" onclick="window.addCounter()">+ add counter</button>
+      </div>
     </div>
-
-    <div id="flashbang-overlay"></div>
-    <img id="think-fast-img" src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/thinkfastchucklenuts.png?raw=true" alt="Think Fast">
-
-    <audio id="flashbang-sound" preload="auto">
-        <source src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/flashbang-gah-dayum.mp3?raw=true" type="audio/mpeg">
-    </audio>
-    <audio id="scream-sound" preload="auto">
-        <source src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/Screen%20recording%202026-01-13%204.07.40%20PM.mp3?raw=true" type="audio/mpeg">
-    </audio>
-
-    <div id="notif-banner" onclick="window.requestNotifPermission()">
-        🔔 enable web notifications to get visitor alerts
+    <div id="broadcast-section">
+      <h3>live broadcast</h3>
+      <div style="display:flex;gap:5px;margin-bottom:5px;">
+        <input type="text" id="broadcast-input" placeholder="message..." style="flex:2;">
+        <input type="number" id="broadcast-duration" value="5" min="1" max="60" style="flex:1;width:50px;text-align:center;">
+      </div>
+      <button style="width:100%;background:#00d2ff;color:#000;font-weight:900;border:none;padding:8px;border-radius:6px;cursor:pointer;" onclick="window.sendBroadcast()">broadcast</button>
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+        <button class="btn-fun-danger" style="border:none;border-radius:6px;cursor:pointer;padding:8px;" onclick="window.triggerGlobal('flashbang')">GLOBAL FLASH</button>
+        <button class="btn-fun-danger" style="background:#a55eea;color:#fff;border:none;border-radius:6px;cursor:pointer;padding:8px;" onclick="window.triggerGlobal('glitch')">GLOBAL GLITCH</button>
+        <button id="owner-freeze-btn" class="btn-fun-critical" style="grid-column:span 2;display:none;border:none;border-radius:6px;cursor:pointer;padding:8px;" onclick="window.triggerGlobal('freeze')">⚠️ MASS CLIENT FREEZE ⚠️</button>
+      </div>
     </div>
-
-    <canvas id="particle-canvas"></canvas>
-    <div id="broadcast-container"></div>
-
-    <!-- Counters are injected here dynamically -->
-    <div id="counters-wrapper"></div>
-
-    <div class="auth-controls">
-        <div id="user-info"></div>
-        <button id="login-btn"  style="padding:6px 12px; font-size:0.7rem;" onclick="window.login()">login / register</button>
-        <button id="logout-btn" style="display:none; padding:6px 12px; font-size:0.7rem;" onclick="window.logout()">logout</button>
-        <button onclick="window.togglePersonalTheme()" style="background:none; border:none; color:inherit; font-size:1.2rem; cursor:pointer;">🌓</button>
+    <div id="owner-section" style="display:none;margin-top:15px;">
+      <h3 style="font-size:.8rem;border-bottom:1px solid #444;padding-bottom:4px;display:flex;justify-content:space-between;">users
+        <button onclick="window.setupUserObserver()" style="background:none;border:none;color:inherit;font-size:.6rem;text-decoration:underline;cursor:pointer;">refresh</button>
+      </h3>
+      <div id="user-list"><p style="font-size:.7rem;opacity:.5;">connecting...</p></div>
     </div>
+  </div>
+</div>
 
-    <div id="admin-panel">
-        <div id="admin-header">
-            <span>management panel</span>
-            <button onclick="window.toggleGlobalTheme()" style="font-size:0.6rem; background:#ff4757; border:none; padding:2px 6px; border-radius:4px; color:white;">global theme</button>
-        </div>
-        <div id="admin-content">
-            <div id="status-display" style="display:none; font-size:0.7rem; padding:5px; margin-bottom:10px;"></div>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore,doc,onSnapshot,setDoc,collection,addDoc,updateDoc,getDoc,deleteDoc,serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth,signInWithPopup,GoogleAuthProvider,onAuthStateChanged,signOut }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-            <div id="timer-section">
-                <h3>event config</h3>
-                <!-- counter config blocks injected here by JS -->
-                <div id="counter-configs"></div>
-                <!-- shown only to owner -->
-                <div id="add-counter-section" style="display:none; margin-top:8px; padding-top:8px; border-top:1px solid rgba(128,128,128,0.15);">
-                    <button id="add-counter-btn" onclick="window.addCounter()">+ add counter</button>
-                </div>
-            </div>
+const app = initializeApp({
+  apiKey:"AIzaSyBU40uJSFMhEBeNDlNclLfCEp0cxL5bND4",
+  authDomain:"countdowns-208d2.firebaseapp.com",
+  projectId:"countdowns-208d2",
+  storageBucket:"countdowns-208d2.firebasestorage.app",
+  messagingSenderId:"130020979616",
+  appId:"1:130020979616:web:bc01b82ffd7eb400e1aac5"
+});
+const db=getFirestore(app), auth=getAuth(app), provider=new GoogleAuthProvider();
+const OWNER_EMAIL="mactane12@gmail.com";
 
-            <div id="broadcast-section">
-                <h3>live broadcast</h3>
-                <div style="display:flex; gap:5px; margin-bottom:5px;">
-                    <input type="text"   id="broadcast-input"    placeholder="message..."  style="flex:2;">
-                    <input type="number" id="broadcast-duration" placeholder="sec" value="5" min="1" max="60" style="flex:1; width:50px; text-align:center;">
-                </div>
-                <button style="width:100%; background:#00d2ff; color:#000; font-weight:900; border:none; padding:8px; border-radius:6px; cursor:pointer;" onclick="window.sendBroadcast()">broadcast</button>
-                <div style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:5px;">
-                    <button class="btn-fun-danger" style="border:none; border-radius:6px; cursor:pointer; padding:8px;" onclick="window.triggerGlobal('flashbang')">GLOBAL FLASH</button>
-                    <button class="btn-fun-danger" style="background:#a55eea; color:white; border:none; border-radius:6px; cursor:pointer; padding:8px;" onclick="window.triggerGlobal('glitch')">GLOBAL GLITCH</button>
-                    <button id="owner-freeze-btn" class="btn-fun-critical" style="grid-column:span 2; display:none; border:none; border-radius:6px; cursor:pointer; padding:8px;" onclick="window.triggerGlobal('freeze')">⚠️ MASS CLIENT FREEZE ⚠️</button>
-                </div>
-            </div>
+// ── STATE ──
+let counterCount=0, renderedCount=0, adminCount=0;
+const targetTimes={}, counterUnsubs={};
+let activeIdx=0;
+let globalTheme='dark', personalTheme=localStorage.getItem('personal-theme')||null;
+let currentUserRole='member', currentUserId=null;
+const pageLoadTime=Date.now();
+let lastKnownVisitorCount=0, audioUnlocked=false;
 
-            <div id="owner-section" style="display:none; margin-top:15px;">
-                <h3 style="font-size:0.8rem; border-bottom:1px solid #444; padding-bottom:4px; display:flex; justify-content:space-between;">
-                    users
-                    <button onclick="window.setupUserObserver()" style="background:none; border:none; color:inherit; font-size:0.6rem; text-decoration:underline; cursor:pointer;">refresh</button>
-                </h3>
-                <div id="user-list">
-                    <p style="font-size:0.7rem; opacity:0.5;">connecting...</p>
-                </div>
-            </div>
-        </div>
-    </div>
+// ── CAROUSEL ──
+function slideSpacing(){ return Math.min(480, window.innerWidth*0.55); }
 
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, getDoc, deleteDoc, serverTimestamp }
-            from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut }
-            from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+function updateCarousel(){
+  const slides=document.querySelectorAll('.counter-slide');
+  const sp=slideSpacing();
+  slides.forEach((s,i)=>{
+    const off=i-activeIdx, abs=Math.abs(off);
+    const tx=off*sp;
+    const sc=Math.max(0.55, 1-abs*0.2);
+    const op=Math.max(0, 1-abs*0.5);
+    const blur=abs===0?0:abs*2;
+    s.style.transform=`translateX(${tx}px) scale(${sc})`;
+    s.style.opacity=op;
+    s.style.filter=blur>0?`blur(${blur}px)`:'none';
+    s.style.zIndex=20-abs;
+    s.style.pointerEvents=abs===0?'auto':'none';
+  });
+  updateDots();
+  updateArrows();
+}
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBU40uJSFMhEBeNDlNclLfCEp0cxL5bND4",
-            authDomain: "countdowns-208d2.firebaseapp.com",
-            projectId: "countdowns-208d2",
-            storageBucket: "countdowns-208d2.firebasestorage.app",
-            messagingSenderId: "130020979616",
-            appId: "1:130020979616:web:bc01b82ffd7eb400e1aac5"
-        };
+function updateDots(){
+  const dc=document.getElementById('carousel-dots');
+  if(!dc) return;
+  if(dc.children.length!==counterCount){
+    dc.innerHTML='';
+    for(let i=0;i<counterCount;i++){
+      const d=document.createElement('div');
+      d.className='c-dot'+(i===activeIdx?' on':'');
+      d.onclick=()=>{ activeIdx=i; updateCarousel(); };
+      dc.appendChild(d);
+    }
+  } else {
+    Array.from(dc.children).forEach((d,i)=>d.className='c-dot'+(i===activeIdx?' on':''));
+  }
+}
 
-        const app      = initializeApp(firebaseConfig);
-        const db       = getFirestore(app);
-        const auth     = getAuth(app);
-        const provider = new GoogleAuthProvider();
+function updateArrows(){
+  const l=document.getElementById('arrow-l'), r=document.getElementById('arrow-r');
+  if(!l||!r) return;
+  l.disabled=activeIdx<=0;
+  r.disabled=activeIdx>=counterCount-1;
+  const hide=counterCount<=1;
+  l.style.visibility=r.style.visibility=hide?'hidden':'visible';
+}
 
-        const OWNER_EMAIL = "mactane12@gmail.com".toLowerCase();
+window.shiftCarousel=(dir)=>{
+  const next=activeIdx+dir;
+  if(next>=0&&next<counterCount){ activeIdx=next; updateCarousel(); }
+};
 
-        // ── COUNTER STATE ──
-        // counterCount   = how many counters Firebase says should exist
-        // renderedCount  = how many counter DOM sections are on the page
-        // adminCount     = how many config blocks are in the admin panel
-        // targetTimes    = { 1: timestamp, 2: timestamp, ... }
-        // counterUnsubs  = { 1: unsubFn, 2: unsubFn, ... }
-        let counterCount  = 0;
-        let renderedCount = 0;
-        let adminCount    = 0;
-        const targetTimes  = {};
-        const counterUnsubs = {};
+// keyboard
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  if(e.key==='ArrowLeft'){  e.preventDefault(); window.shiftCarousel(-1); }
+  if(e.key==='ArrowRight'){ e.preventDefault(); window.shiftCarousel(1); }
+  if(e.key===' ' && document.getElementById('game-panel').style.display==='block'){
+    e.preventDefault();
+    if(gState==='idle'||gState==='dead') startGame();
+  }
+  gKeys[e.key]=true;
+});
+document.addEventListener('keyup',e=>{ delete gKeys[e.key]; });
 
-        let globalTheme   = 'dark';
-        let personalTheme = localStorage.getItem('personal-theme') || null;
-        let currentUserRole = 'member';
-        let currentUserId   = null;
-        const pageLoadTime  = Date.now();
-        let lastKnownVisitorCount = 0;
-        let audioUnlocked = false;
+// touch swipe
+let touchX=0;
+document.addEventListener('touchstart',e=>{ touchX=e.touches[0].clientX; },{passive:true});
+document.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-touchX;
+  if(Math.abs(dx)>50) window.shiftCarousel(dx<0?1:-1);
+});
 
-        // ── COUNTER MANAGEMENT ──
+window.addEventListener('resize', updateCarousel);
 
-        // Called whenever config/timers_meta changes
-        function handleCounterCount(n) {
-            // Add any new counter sections to the visible page
-            for (let i = renderedCount + 1; i <= n; i++) addCounterToPage(i);
-            renderedCount = n;
+// ── COUNTER MANAGEMENT ──
+function handleCounterCount(n){
+  for(let i=renderedCount+1;i<=n;i++) addCounterToPage(i);
+  renderedCount=n;
+  for(let i=adminCount+1;i<=n;i++) addCounterConfigToAdmin(i);
+  adminCount=n;
+  counterCount=n;
+  updateCarousel();
+}
 
-            // Add any new config blocks to the admin panel
-            for (let i = adminCount + 1; i <= n; i++) addCounterConfigToAdmin(i);
-            adminCount = n;
+function addCounterToPage(n){
+  const track=document.getElementById('carousel-track');
+  const slide=document.createElement('div');
+  slide.className='counter-slide';
+  slide.id=`slide-${n}`;
+  slide.innerHTML=`
+    <h1 id="event-name-${n}">loading...</h1>
+    <div class="timer-container">
+      <div class="unit-group"><span class="number" id="months-${n}">00</span><div class="label">months</div></div>
+      <div class="unit-group"><span class="number" id="days-${n}">00</span><div class="label">days</div></div>
+      <div class="unit-group"><span class="number" id="hours-${n}">00</span><div class="label">hours</div></div>
+      <div class="unit-group"><span class="number" id="minutes-${n}">00</span><div class="label">minutes</div></div>
+      <div class="unit-group"><span class="number" id="seconds-${n}">00</span><div class="label">seconds</div></div>
+    </div>`;
+  track.appendChild(slide);
+  subscribeCounter(n);
+}
 
-            counterCount = n;
-        }
+function addCounterConfigToAdmin(n){
+  const c=document.getElementById('counter-configs'); if(!c) return;
+  const b=document.createElement('div'); b.className='cc-block'; b.id=`cc-${n}`;
+  b.innerHTML=`<span class="cc-label">counter ${n}</span>
+    <input type="text" id="name-input-${n}" placeholder="event name">
+    <input type="datetime-local" id="date-input-${n}">
+    <button style="width:100%;font-weight:900;background:var(--text);color:var(--bg);border:none;padding:8px;border-radius:6px;cursor:pointer;font-family:inherit;" onclick="window.updateTimer(${n})">update counter ${n}</button>`;
+  c.appendChild(b);
+}
 
-        // Append a single counter section to #counters-wrapper
-        function addCounterToPage(n) {
-            const wrapper = document.getElementById('counters-wrapper');
-            if (n > 1) {
-                const divider = document.createElement('div');
-                divider.className = 'counter-divider';
-                wrapper.appendChild(divider);
-            }
-            const section = document.createElement('div');
-            section.className = 'counter-section';
-            section.id = `counter-section-${n}`;
-            section.innerHTML = `
-                <h1 id="event-name-${n}">loading...</h1>
-                <div class="timer-container">
-                    <div class="unit-group"><span class="number" id="months-${n}">00</span><div class="label">months</div></div>
-                    <div class="unit-group"><span class="number" id="days-${n}">00</span><div class="label">days</div></div>
-                    <div class="unit-group"><span class="number" id="hours-${n}">00</span><div class="label">hours</div></div>
-                    <div class="unit-group"><span class="number" id="minutes-${n}">00</span><div class="label">minutes</div></div>
-                    <div class="unit-group"><span class="number" id="seconds-${n}">00</span><div class="label">seconds</div></div>
-                </div>`;
-            wrapper.appendChild(section);
-            subscribeCounter(n); // start listening to this counter's Firebase doc
-        }
+function subscribeCounter(n){
+  if(counterUnsubs[n]) return;
+  const key=n===1?'timer':`timer${n}`;
+  counterUnsubs[n]=onSnapshot(doc(db,'config',key),snap=>{
+    if(!snap.exists()) return;
+    const d=snap.data();
+    if(d.targetTime) targetTimes[n]=new Date(d.targetTime).getTime();
+    const el=document.getElementById(`event-name-${n}`);
+    if(el) el.innerText=(d.eventName||`event ${n}`).toLowerCase();
+    if(n===1){ globalTheme=d.theme||'dark'; applyThemes(); }
+  });
+}
 
-        // Append a single config block to #counter-configs in the admin panel
-        function addCounterConfigToAdmin(n) {
-            const container = document.getElementById('counter-configs');
-            if (!container) return;
-            const block = document.createElement('div');
-            block.className = 'counter-config-block';
-            block.id = `counter-config-${n}`;
-            block.innerHTML = `
-                <span class="counter-config-label">counter ${n}</span>
-                <input type="text"           id="name-input-${n}" placeholder="event name">
-                <input type="datetime-local" id="date-input-${n}">
-                <button style="width:100%; font-weight:900; background:var(--text); color:var(--bg); border:none; padding:8px; border-radius:6px; cursor:pointer;"
-                        onclick="window.updateTimer(${n})">update counter ${n}</button>`;
-            container.appendChild(block);
-        }
+onSnapshot(doc(db,'config','timers_meta'),snap=>{
+  handleCounterCount(snap.exists()?(snap.data().count||2):2);
+});
 
-        // Subscribe to a counter's config doc (counter 1 → "timer", counter N → "timerN")
-        function subscribeCounter(n) {
-            if (counterUnsubs[n]) return; // already subscribed
-            const configKey = n === 1 ? 'timer' : `timer${n}`;
-            counterUnsubs[n] = onSnapshot(doc(db, 'config', configKey), (snap) => {
-                if (!snap.exists()) return;
-                const data = snap.data();
-                if (data.targetTime) targetTimes[n] = new Date(data.targetTime).getTime();
-                const nameEl = document.getElementById(`event-name-${n}`);
-                if (nameEl) nameEl.innerText = (data.eventName || `event ${n}`).toLowerCase();
-                if (n === 1) { globalTheme = data.theme || 'dark'; applyThemes(); }
-            });
-        }
+window.addCounter=async()=>{
+  if(currentUserRole!=='owner') return;
+  await setDoc(doc(db,'config','timers_meta'),{count:counterCount+1});
+  showStatus(`counter ${counterCount+1} added!`);
+};
 
-        // Listen to the meta doc — tells everyone how many counters should exist.
-        // All visitors (including non-logged-in) need this so counters render for everyone.
-        onSnapshot(doc(db, 'config', 'timers_meta'), (snap) => {
-            const n = snap.exists() ? (snap.data().count || 2) : 2;
-            handleCounterCount(n);
+// ── CLOCK & WEATHER ──
+function updateClock(){
+  const now=new Date();
+  const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  document.getElementById('live-clock').innerText=
+    `${days[now.getDay()]}, ${now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true})}`;
+}
+setInterval(updateClock,1000); updateClock();
+
+async function updateWeather(){
+  try{
+    const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude=39.9526&longitude=-75.1652&current_weather=true&temperature_unit=fahrenheit');
+    const d=await r.json();
+    document.getElementById('live-weather').innerText=`philadelphia: ${Math.round(d.current_weather.temperature)}°f`;
+  }catch(e){}
+}
+updateWeather(); setInterval(updateWeather,600000);
+
+// unlock audio on first click
+document.addEventListener('click',()=>{
+  if(audioUnlocked) return; audioUnlocked=true;
+  const tick=document.getElementById('tick-sound');
+  tick.volume=0.18;
+  tick.play().catch(()=>{});
+  [document.getElementById('flashbang-sound'),document.getElementById('scream-sound')].forEach(s=>{
+    s.play().then(()=>{s.pause();s.currentTime=0;}).catch(()=>{});
+  });
+},{once:true});
+
+// ── NOTIFICATIONS / STATUS ──
+function showNotification(text,sender=null,isVisitor=false,duration=4000){
+  const c=document.getElementById('broadcast-container');
+  const m=document.createElement('div');
+  m.className=`broadcast-msg${isVisitor?' visitor-notification':''}`;
+  m.innerText=((sender?`${sender}: `:'')+text).toLowerCase();
+  m.style.animationDuration=`${duration/1000}s`;
+  c.appendChild(m);
+  setTimeout(()=>{m.style.opacity='0';setTimeout(()=>m.remove(),500);},duration);
+  if(isVisitor) sendWebNotif('Visitor Alert',text);
+}
+window.requestNotifPermission=async()=>{
+  if(await Notification.requestPermission()==='granted') document.getElementById('notif-banner').style.display='none';
+};
+function sendWebNotif(title,body){
+  if(Notification.permission==='granted'&&document.visibilityState!=='visible') new Notification(title,{body});
+}
+function showStatus(text){
+  const el=document.getElementById('status-display');
+  el.innerText=text; el.style.display='block';
+  setTimeout(()=>el.style.display='none',5000);
+}
+function applyThemes(){ document.body.setAttribute('data-theme',personalTheme||globalTheme); }
+window.togglePersonalTheme=()=>{
+  personalTheme=(personalTheme||globalTheme)==='dark'?'light':'dark';
+  localStorage.setItem('personal-theme',personalTheme); applyThemes();
+};
+const updatePresence=async(uid,isOnline)=>{
+  try{ await updateDoc(doc(db,'users',uid),{isOnline,lastSeen:serverTimestamp()}); }catch(e){}
+};
+
+// ── AUTH ──
+window.login=()=>signInWithPopup(auth,provider).catch(e=>showStatus('Login Error: '+e.message));
+window.logout=()=>signOut(auth);
+
+onAuthStateChanged(auth,async user=>{
+  const loginBtn=document.getElementById('login-btn');
+  const logoutBtn=document.getElementById('logout-btn');
+  const userInfo=document.getElementById('user-info');
+  const panel=document.getElementById('admin-panel');
+  const ownerSec=document.getElementById('owner-section');
+
+  if(user){
+    currentUserId=user.uid;
+    loginBtn.style.display='none'; logoutBtn.style.display='block';
+    const email=user.email.toLowerCase();
+    const isOwner=email===OWNER_EMAIL;
+    try{
+      const ref=doc(db,'users',user.uid);
+      const snap=await getDoc(ref);
+      let role=isOwner?'owner':(snap.exists()?(snap.data().role||'member'):'member');
+      if(snap.exists()&&snap.data().isBanned){alert('Banned.');window.logout();return;}
+      await setDoc(ref,{uid:user.uid,email,displayName:user.displayName||email.split('@')[0],role,isOnline:true,lastSeen:serverTimestamp()},{merge:true});
+      window.addEventListener('beforeunload',()=>updatePresence(user.uid,false));
+      currentUserRole=role;
+      userInfo.innerHTML=`hi, ${user.displayName||email.split('@')[0]} <span class="role-badge role-${role}" style="font-size:.6rem;padding:2px 5px;border-radius:4px;font-weight:900;background:${role==='owner'?'#ffd700':role==='admin'?'#00d2ff':'rgba(128,128,128,.3)'};color:${role==='owner'||role==='admin'?'black':'white'};margin-left:5px;">${role}</span>`;
+      if(role==='admin'||role==='owner'){
+        panel.style.display='flex'; ownerSec.style.display='block'; window.setupUserObserver();
+      }
+      if(role==='owner'){
+        document.getElementById('owner-freeze-btn').style.display='block';
+        document.getElementById('add-counter-section').style.display='block';
+        if(Notification.permission!=='granted'&&Notification.permission!=='denied') document.getElementById('notif-banner').style.display='block';
+        onSnapshot(collection(db,'users'),snap=>{
+          const online=snap.docs.filter(d=>d.data().isOnline&&d.id!==user.uid);
+          if(online.length>lastKnownVisitorCount){
+            const nv=online[online.length-1].data();
+            showNotification(`👀 visitor: ${nv.displayName||'someone'}`,null,true);
+          }
+          lastKnownVisitorCount=online.length;
         });
+      }
+      onSnapshot(doc(db,'interactions',user.uid),snap=>{
+        if(snap.exists()){ handleInteraction(snap.data().type); setTimeout(()=>deleteDoc(doc(db,'interactions',user.uid)),1500); }
+      });
+      onSnapshot(doc(db,'interactions','global'),snap=>{
+        if(snap.exists()&&snap.data().sentAt&&Date.now()-snap.data().sentAt.toMillis()<10000) handleInteraction(snap.data().type);
+      });
+    }catch(err){console.error(err);}
+  } else {
+    loginBtn.style.display='block'; logoutBtn.style.display='none';
+    userInfo.innerText=''; panel.style.display='none';
+    currentUserRole='member'; currentUserId=null;
+  }
+});
 
-        // Owner adds a new counter — just increments the count in Firestore.
-        // The onSnapshot above propagates the change to every connected client.
-        window.addCounter = async () => {
-            if (currentUserRole !== 'owner') return;
-            const newCount = counterCount + 1;
-            await setDoc(doc(db, 'config', 'timers_meta'), { count: newCount });
-            showStatus(`counter ${newCount} added!`);
-        };
+// ── INTERACTIONS ──
+function handleInteraction(type){
+  if(type==='shake'){ document.body.classList.add('shake-active'); setTimeout(()=>document.body.classList.remove('shake-active'),3000); }
+  else if(type==='invert'){ document.body.classList.add('invert-active'); setTimeout(()=>document.body.classList.remove('invert-active'),5000); }
+  else if(type==='glitch'){ document.body.classList.add('glitch-active'); setTimeout(()=>document.body.classList.remove('glitch-active'),4000); }
+  else if(type==='confetti'){ confetti({particleCount:150,spread:70,origin:{y:.6}}); }
+  else if(type==='scream'){ const s=document.getElementById('scream-sound'); s.volume=1;s.currentTime=0;s.play().catch(()=>{}); }
+  else if(type==='flashbang'){
+    const img=document.getElementById('think-fast-img'),snd=document.getElementById('flashbang-sound'),ov=document.getElementById('flashbang-overlay');
+    img.style.display='block';
+    setTimeout(()=>{ img.style.display='none'; snd.currentTime=0;snd.play().catch(()=>{});
+      ov.style.transition='none';ov.style.opacity='1';
+      setTimeout(()=>{ ov.style.transition='opacity 3s ease-out';ov.style.opacity='0'; },5000);
+    },500);
+  }
+  else if(type==='freeze'){ const s=Date.now(); while(Date.now()-s<15000){} window.location.reload(); }
+}
+window.triggerFun=async(uid,type)=>{
+  if(currentUserRole!=='owner'&&currentUserRole!=='admin') return;
+  try{ if(uid===currentUserId) handleInteraction(type); await setDoc(doc(db,'interactions',uid),{type,sentAt:serverTimestamp()}); showStatus(`sent ${type}!`); }catch(e){ showStatus('blocked.'); }
+};
+window.triggerGlobal=async(type)=>{
+  if(currentUserRole!=='owner'&&currentUserRole!=='admin') return;
+  if(type==='freeze'&&currentUserRole!=='owner') return;
+  if(!confirm(type==='freeze'?'WARNING: freeze all clients 15s?':`trigger global ${type}?`)) return;
+  try{ await setDoc(doc(db,'interactions','global'),{type,sentAt:serverTimestamp()}); showStatus(`global ${type} sent`); }catch(e){ showStatus('blocked.'); }
+};
 
-        // ── CLOCK & WEATHER ──
-        document.addEventListener('click', () => {
-            if (!audioUnlocked) {
-                [document.getElementById('flashbang-sound'), document.getElementById('scream-sound')].forEach(s => {
-                    s.play().then(() => { s.pause(); s.currentTime = 0; }).catch(() => {});
-                });
-                audioUnlocked = true;
-            }
-        }, { once: true });
+// ── USER LIST ──
+let unsubUsers=null;
+window.setupUserObserver=()=>{
+  if(unsubUsers) unsubUsers();
+  const list=document.getElementById('user-list');
+  list.innerHTML="<p style='font-size:.7rem;opacity:.5;'>loading...</p>";
+  unsubUsers=onSnapshot(collection(db,'users'),snap=>{
+    list.innerHTML='';
+    snap.forEach(ds=>{
+      const u=ds.data(), isSelf=u.uid===currentUserId;
+      const div=document.createElement('div'); div.className='user-row';
+      const sc=u.isOnline?'status-online':'status-offline';
+      let aHtml='';
+      if(currentUserRole==='owner') aHtml=`<div style="display:flex;gap:4px;">
+        <button style="background:${u.role==='admin'?'#ff4757':'#00d2ff'};color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.6rem;cursor:pointer;" onclick="window.updateRole('${u.uid}','${u.role==='admin'?'member':'admin'}')">${u.role==='admin'?'demote':'promote'}</button>
+        <button style="background:#000;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.6rem;cursor:pointer;" onclick="window.toggleBan('${u.uid}',${!u.isBanned})">${u.isBanned?'unban':'ban'}</button>
+      </div>`;
+      div.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+        <div style="font-size:.7rem;display:flex;flex-direction:column;">
+          <span><span class="status-dot ${sc}"></span>${u.displayName||'anon'} ${isSelf?'(you)':''} <small style="font-size:.55rem;padding:1px 4px;border-radius:4px;font-weight:900;background:rgba(128,128,128,.3);color:#fff;">${u.role||'member'}</small></span>
+          <span style="font-size:.6rem;opacity:.5;">${u.email||''}</span>
+        </div>${aHtml}</div>
+        <div style="display:flex;gap:2px;flex-wrap:wrap;">
+          <button class="btn-fun" onclick="window.triggerFun('${u.uid}','shake')"    style="border:none;border-radius:4px;cursor:pointer;">📳</button>
+          <button class="btn-fun" onclick="window.triggerFun('${u.uid}','invert')"   style="border:none;border-radius:4px;cursor:pointer;">🌈</button>
+          <button class="btn-fun" onclick="window.triggerFun('${u.uid}','glitch')"   style="background:purple;border:none;border-radius:4px;cursor:pointer;">👾</button>
+          <button class="btn-fun" onclick="window.triggerFun('${u.uid}','confetti')" style="border:none;border-radius:4px;cursor:pointer;">🎉</button>
+          <button class="btn-fun btn-fun-danger" onclick="window.triggerFun('${u.uid}','flashbang')" style="border:none;border-radius:4px;cursor:pointer;">💣</button>
+          <button class="btn-fun" onclick="window.triggerFun('${u.uid}','scream')"   style="background:red;border:none;border-radius:4px;cursor:pointer;">🔊</button>
+          ${currentUserRole==='owner'?`<button class="btn-fun btn-fun-critical" onclick="window.triggerFun('${u.uid}','freeze')" style="border:none;border-radius:4px;cursor:pointer;">❄️</button>`:''}
+        </div>`;
+      list.appendChild(div);
+    });
+  });
+};
+window.updateRole=async(uid,r)=>{ if(currentUserRole!=='owner') return; await updateDoc(doc(db,'users',uid),{role:r}).catch(e=>showStatus('failed: '+e.message)); };
+window.toggleBan=async(uid,b)=>{ if(currentUserRole!=='owner') return; await updateDoc(doc(db,'users',uid),{isBanned:b}).catch(e=>showStatus('failed: '+e.message)); };
 
-        function updateClock() {
-            const now  = new Date();
-            const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-            const t    = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-            document.getElementById('live-clock').innerText = `${days[now.getDay()]}, ${t}`;
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
+// ── FIREBASE CONFIG LISTENERS ──
+onSnapshot(collection(db,'broadcasts'),snap=>{
+  snap.docChanges().forEach(ch=>{
+    if(ch.type==='added'&&new Date(ch.doc.data().sentAt).getTime()>pageLoadTime){
+      const d=ch.doc.data(); showNotification(d.text,d.sender,false,(d.duration||5)*1000);
+    }
+  });
+});
+window.toggleGlobalTheme=async()=>{
+  if(currentUserRole!=='owner'&&currentUserRole!=='admin') return;
+  await setDoc(doc(db,'config','timer'),{theme:globalTheme==='dark'?'light':'dark'},{merge:true});
+};
+window.updateTimer=async(n)=>{
+  if(currentUserRole!=='owner'&&currentUserRole!=='admin') return;
+  const date=document.getElementById(`date-input-${n}`).value;
+  const name=document.getElementById(`name-input-${n}`).value;
+  if(!date||!name){showStatus('fill both fields');return;}
+  await setDoc(doc(db,'config',n===1?'timer':`timer${n}`),{targetTime:date,eventName:name.toLowerCase()},{merge:true});
+  showStatus(`counter ${n} updated.`);
+};
+window.sendBroadcast=async()=>{
+  const inp=document.getElementById('broadcast-input');
+  const dur=document.getElementById('broadcast-duration');
+  if(!inp.value) return;
+  const text=inp.value, duration=parseFloat(dur.value)||5;
+  inp.value='';
+  const sender=auth.currentUser.displayName||auth.currentUser.email.split('@')[0];
+  try{ await addDoc(collection(db,'broadcasts'),{text,sender,duration,sentAt:new Date().toISOString()}); showStatus('broadcast sent!'); }
+  catch(e){ showStatus('error: '+e.message); }
+};
 
-        async function updateWeather() {
-            try {
-                const res  = await fetch('https://api.open-meteo.com/v1/forecast?latitude=39.9526&longitude=-75.1652&current_weather=true&temperature_unit=fahrenheit');
-                const data = await res.json();
-                document.getElementById('live-weather').innerText = `philadelphia: ${Math.round(data.current_weather.temperature)}°f`;
-            } catch (e) { console.error("Weather failed"); }
-        }
-        updateWeather();
-        setInterval(updateWeather, 600000);
+// ── DRAGGABLE ADMIN PANEL ──
+const adminPanel=document.getElementById('admin-panel');
+const adminHdr=document.getElementById('admin-header');
+let drag={on:false,ox:0,oy:0};
+adminHdr.onmousedown=e=>{ drag.on=true; drag.ox=e.clientX-adminPanel.offsetLeft; drag.oy=e.clientY-adminPanel.offsetTop; };
+document.onmousemove=e=>{ if(!drag.on) return; adminPanel.style.left=(e.clientX-drag.ox)+'px'; adminPanel.style.top=(e.clientY-drag.oy)+'px'; adminPanel.style.right='auto'; adminPanel.style.bottom='auto'; };
+document.onmouseup=()=>{ drag.on=false; };
 
-        window.login  = () => signInWithPopup(auth, provider).catch(e => showStatus("Login Error: " + e.message, true));
-        window.logout = () => signOut(auth);
+// ── COUNTDOWN ENGINE ──
+function calcCountdown(n,t){
+  if(!t) return;
+  const now=new Date(), target=new Date(t), diff=target-now;
+  if(diff<=0){
+    const el=document.getElementById(`event-name-${n}`); if(el) el.innerText='event live';
+    ['months','days','hours','minutes','seconds'].forEach(id=>{ const e=document.getElementById(`${id}-${n}`); if(e) e.innerText='00'; });
+    return;
+  }
+  let m=(target.getFullYear()-now.getFullYear())*12+(target.getMonth()-now.getMonth());
+  let tmp=new Date(now); tmp.setMonth(now.getMonth()+m);
+  if(tmp>target){m--;tmp=new Date(now);tmp.setMonth(now.getMonth()+m);}
+  const dd=Math.floor((target-tmp)/(1000*60*60*24));
+  const hh=Math.floor((diff%(1000*60*60*24))/(1000*60*60));
+  const mm=Math.floor((diff%(1000*60*60))/(1000*60));
+  const ss=Math.floor((diff%(1000*60))/1000);
+  document.getElementById(`months-${n}`).innerText=m.toString().padStart(2,'0');
+  document.getElementById(`days-${n}`).innerText=dd.toString().padStart(2,'0');
+  document.getElementById(`hours-${n}`).innerText=hh.toString().padStart(2,'0');
+  document.getElementById(`minutes-${n}`).innerText=mm.toString().padStart(2,'0');
+  document.getElementById(`seconds-${n}`).innerText=ss.toString().padStart(2,'0');
+}
+setInterval(()=>{ for(let i=1;i<=counterCount;i++) calcCountdown(i,targetTimes[i]); },1000);
 
-        function showNotification(text, sender = null, isVisitor = false, duration = 4000) {
-            const container = document.getElementById('broadcast-container');
-            const msg = document.createElement('div');
-            msg.className = `broadcast-msg ${isVisitor ? 'visitor-notification' : ''}`;
-            msg.innerText = ((sender ? `${sender}: ` : '') + text).toLowerCase();
-            msg.style.animationDuration = `${duration / 1000}s`;
-            container.appendChild(msg);
-            setTimeout(() => { msg.style.opacity = '0'; setTimeout(() => msg.remove(), 500); }, duration);
-            if (isVisitor) sendWebNotification("Visitor Alert", text);
-        }
+// ── MINI GAME: VOID.DASH ──
+const GW=300, GH=170;
+const gCvs=document.getElementById('game-canvas');
+const gCtx=gCvs.getContext('2d');
+const gKeys={};
+let gState='idle', gScore=0, gBest=parseFloat(localStorage.getItem('vd-best')||'0');
+let gFrame=0, gSpeed=2.2, gSpawnCd=0, gSpawnRate=65;
+let gPlayer={x:34,y:GH/2,w:9,h:9};
+let gObs=[], gRaf=null;
 
-        window.requestNotifPermission = async () => {
-            const perm = await Notification.requestPermission();
-            if (perm === 'granted') document.getElementById('notif-banner').style.display = 'none';
-        };
+function startGame(){
+  gState='playing'; gScore=0; gFrame=0; gSpeed=2.2; gSpawnRate=65; gSpawnCd=0;
+  gPlayer={x:34,y:GH/2,w:9,h:9}; gObs=[];
+  document.getElementById('game-hint').innerText='w / s to move · dodge the squares';
+}
 
-        function sendWebNotification(title, body) {
-            if (Notification.permission === 'granted' && document.visibilityState !== 'visible')
-                new Notification(title, { body });
-        }
+function gameLoop(){
+  const bg=getComputedStyle(document.body).getPropertyValue('--bg').trim()||'#1a1a1c';
+  const tx=getComputedStyle(document.body).getPropertyValue('--text').trim()||'#e0e0e0';
+  gCtx.fillStyle=bg; gCtx.fillRect(0,0,GW,GH);
 
-        function showStatus(text, isError = false) {
-            const el = document.getElementById('status-display');
-            el.innerText = text;
-            el.style.display = 'block';
-            setTimeout(() => el.style.display = 'none', 5000);
-        }
+  if(gState==='idle'){
+    gCtx.textAlign='center'; gCtx.fillStyle=tx;
+    gCtx.globalAlpha=.85; gCtx.font='bold 12px Roboto,sans-serif';
+    gCtx.fillText('void.dash',GW/2,GH/2-20);
+    gCtx.globalAlpha=.4; gCtx.font='bold 9px Roboto,sans-serif';
+    gCtx.fillText('press space to start',GW/2,GH/2-2);
+    gCtx.fillText('w / s to move',GW/2,GH/2+14);
+    if(gBest>0) gCtx.fillText(`best: ${gBest.toFixed(1)}s`,GW/2,GH/2+30);
+    gCtx.globalAlpha=.5; gCtx.fillRect(gPlayer.x,gPlayer.y-gPlayer.h/2,gPlayer.w,gPlayer.h);
+    gCtx.globalAlpha=1;
 
-        function applyThemes() {
-            document.body.setAttribute('data-theme', personalTheme || globalTheme);
-        }
+  } else if(gState==='playing'){
+    gFrame++; gScore=gFrame/60;
+    gSpeed=2.2+gFrame*0.0018; gSpawnRate=Math.max(28,65-gFrame*0.06);
+    gSpawnCd--;
+    if(gSpawnCd<=0){
+      gSpawnCd=Math.floor(gSpawnRate);
+      const h=13+Math.random()*40, y=5+Math.random()*(GH-h-10);
+      gObs.push({x:GW+4,y,w:9+Math.random()*7,h});
+    }
+    if(gKeys['w']||gKeys['W']) gPlayer.y=Math.max(gPlayer.h/2+3,gPlayer.y-3);
+    if(gKeys['s']||gKeys['S']) gPlayer.y=Math.min(GH-gPlayer.h/2-3,gPlayer.y+3);
+    gObs.forEach(o=>o.x-=gSpeed);
+    gObs=gObs.filter(o=>o.x+o.w>-5);
+    const px=gPlayer.x, py=gPlayer.y-gPlayer.h/2, pw=gPlayer.w, ph=gPlayer.h;
+    for(const o of gObs){
+      if(px<o.x+o.w&&px+pw>o.x&&py<o.y+o.h&&py+ph>o.y){
+        gState='dead';
+        if(gScore>gBest){ gBest=gScore; localStorage.setItem('vd-best',gBest.toFixed(2)); }
+        document.getElementById('game-hint').innerText='space to retry';
+        break;
+      }
+    }
+    gCtx.fillStyle=tx;
+    gObs.forEach(o=>{ gCtx.globalAlpha=.22; gCtx.fillRect(o.x,o.y,o.w,o.h); });
+    gCtx.globalAlpha=1; gCtx.fillRect(px,py,pw,ph);
+    gCtx.globalAlpha=.45; gCtx.font='bold 9px Roboto,sans-serif';
+    gCtx.textAlign='left'; gCtx.fillText(`${gScore.toFixed(1)}s`,5,13);
+    gCtx.textAlign='right'; gCtx.fillText(`best: ${gBest.toFixed(1)}s`,GW-5,13);
+    gCtx.globalAlpha=1;
 
-        window.togglePersonalTheme = () => {
-            const current = personalTheme || globalTheme;
-            personalTheme = current === 'dark' ? 'light' : 'dark';
-            localStorage.setItem('personal-theme', personalTheme);
-            applyThemes();
-            showStatus("personal theme: " + personalTheme);
-        };
+  } else if(gState==='dead'){
+    gCtx.fillStyle=tx;
+    gObs.forEach(o=>{ gCtx.globalAlpha=.15; gCtx.fillRect(o.x,o.y,o.w,o.h); });
+    gCtx.globalAlpha=.35; gCtx.fillRect(gPlayer.x,gPlayer.y-gPlayer.h/2,gPlayer.w,gPlayer.h);
+    gCtx.textAlign='center';
+    gCtx.globalAlpha=.85; gCtx.font='bold 12px Roboto,sans-serif';
+    gCtx.fillText('you died.',GW/2,GH/2-12);
+    gCtx.globalAlpha=.4; gCtx.font='bold 9px Roboto,sans-serif';
+    gCtx.fillText(`${gScore.toFixed(1)}s survived`,GW/2,GH/2+6);
+    if(gScore>=gBest&&gBest>0) gCtx.fillText('new best!',GW/2,GH/2+22);
+    gCtx.globalAlpha=1;
+  }
+  gRaf=requestAnimationFrame(gameLoop);
+}
 
-        const updatePresence = async (uid, isOnline) => {
-            if (!uid) return;
-            try { await updateDoc(doc(db, 'users', uid), { isOnline, lastSeen: serverTimestamp() }); } catch (e) {}
-        };
+window.toggleGame=()=>{
+  const gp=document.getElementById('game-panel');
+  if(!gp.style.display||gp.style.display==='none'){
+    gp.style.display='block';
+    if(!gRaf) gRaf=requestAnimationFrame(gameLoop);
+  } else {
+    gp.style.display='none';
+    if(gRaf){ cancelAnimationFrame(gRaf); gRaf=null; }
+  }
+};
 
-        // ── AUTH ──
-        onAuthStateChanged(auth, async (user) => {
-            const loginBtn     = document.getElementById('login-btn');
-            const logoutBtn    = document.getElementById('logout-btn');
-            const userInfo     = document.getElementById('user-info');
-            const panel        = document.getElementById('admin-panel');
-            const ownerSection = document.getElementById('owner-section');
+// draggable game panel
+const gamePanel=document.getElementById('game-panel');
+const gameHdr=document.getElementById('game-hdr');
+let gdrag={on:false,ox:0,oy:0};
+gameHdr.onmousedown=e=>{ gdrag.on=true; gdrag.ox=e.clientX-gamePanel.offsetLeft; gdrag.oy=e.clientY-gamePanel.offsetTop; e.preventDefault(); };
+document.addEventListener('mousemove',e=>{ if(!gdrag.on) return; gamePanel.style.left=(e.clientX-gdrag.ox)+'px'; gamePanel.style.top=(e.clientY-gdrag.oy)+'px'; gamePanel.style.bottom='auto'; });
+document.addEventListener('mouseup',()=>{ gdrag.on=false; });
 
-            if (user) {
-                currentUserId = user.uid;
-                loginBtn.style.display  = 'none';
-                logoutBtn.style.display = 'block';
-                const userEmail = user.email.toLowerCase();
-                const isOwner   = userEmail === OWNER_EMAIL;
-
-                try {
-                    const userRef  = doc(db, 'users', user.uid);
-                    const userSnap = await getDoc(userRef);
-                    let role = isOwner ? 'owner' : (userSnap.exists() ? (userSnap.data().role || 'member') : 'member');
-
-                    if (userSnap.exists() && userSnap.data().isBanned) {
-                        alert("Banned."); window.logout(); return;
-                    }
-
-                    await setDoc(userRef, {
-                        uid: user.uid, email: userEmail,
-                        displayName: user.displayName || userEmail.split('@')[0],
-                        role, isOnline: true, lastSeen: serverTimestamp()
-                    }, { merge: true });
-
-                    window.addEventListener('beforeunload', () => updatePresence(user.uid, false));
-
-                    currentUserRole = role;
-                    userInfo.innerHTML = `hi, ${user.displayName || userEmail.split('@')[0]}
-                        <span class="role-badge role-${role}" style="font-size:0.6rem; padding:2px 5px; border-radius:4px; font-weight:900;
-                            background:${role==='owner'?'#ffd700':role==='admin'?'#00d2ff':'rgba(128,128,128,0.3)'};
-                            color:${role==='owner'||role==='admin'?'black':'white'}; margin-left:5px;">${role}</span>`;
-
-                    if (role === 'admin' || role === 'owner') {
-                        panel.style.display = 'flex';
-                        ownerSection.style.display = 'block';
-                        window.setupUserObserver();
-                    }
-
-                    if (role === 'owner') {
-                        document.getElementById('owner-freeze-btn').style.display = 'block';
-                        // Only the owner sees the "+ add counter" button
-                        document.getElementById('add-counter-section').style.display = 'block';
-
-                        if (Notification.permission !== 'granted' && Notification.permission !== 'denied')
-                            document.getElementById('notif-banner').style.display = 'block';
-
-                        onSnapshot(collection(db, 'users'), (snap) => {
-                            const online = snap.docs.filter(d => d.data().isOnline && d.id !== user.uid);
-                            if (online.length > lastKnownVisitorCount) {
-                                const nv = online[online.length - 1].data();
-                                showNotification(`👀 visitor: ${nv.displayName || 'someone'}`, null, true);
-                            }
-                            lastKnownVisitorCount = online.length;
-                        });
-                    }
-
-                    onSnapshot(doc(db, 'interactions', user.uid), (snap) => {
-                        if (snap.exists()) {
-                            handleInteraction(snap.data().type);
-                            setTimeout(() => deleteDoc(doc(db, 'interactions', user.uid)), 1500);
-                        }
-                    });
-
-                    onSnapshot(doc(db, 'interactions', 'global'), (snap) => {
-                        if (snap.exists() && snap.data().sentAt) {
-                            if (Date.now() - snap.data().sentAt.toMillis() < 10000)
-                                handleInteraction(snap.data().type);
-                        }
-                    });
-
-                } catch (err) { console.error(err); }
-            } else {
-                loginBtn.style.display  = 'block';
-                logoutBtn.style.display = 'none';
-                userInfo.innerText      = '';
-                panel.style.display     = 'none';
-                currentUserRole = 'member';
-                currentUserId   = null;
-            }
-        });
-
-        // ── INTERACTIONS ──
-        function handleInteraction(type) {
-            if (type === 'shake') {
-                document.body.classList.add('shake-active');
-                setTimeout(() => document.body.classList.remove('shake-active'), 3000);
-            } else if (type === 'invert') {
-                document.body.classList.add('invert-active');
-                setTimeout(() => document.body.classList.remove('invert-active'), 5000);
-            } else if (type === 'glitch') {
-                document.body.classList.add('glitch-active');
-                setTimeout(() => document.body.classList.remove('glitch-active'), 4000);
-            } else if (type === 'confetti') {
-                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-            } else if (type === 'scream') {
-                const snd = document.getElementById('scream-sound');
-                if (snd) { snd.volume = 1.0; snd.currentTime = 0; snd.play().catch(() => {}); }
-            } else if (type === 'flashbang') {
-                const img = document.getElementById('think-fast-img');
-                const snd = document.getElementById('flashbang-sound');
-                const overlay = document.getElementById('flashbang-overlay');
-                img.style.display = 'block';
-                setTimeout(() => {
-                    img.style.display = 'none';
-                    if (snd) { snd.currentTime = 0; snd.play().catch(() => {}); }
-                    overlay.style.transition = 'none'; overlay.style.opacity = '1';
-                    setTimeout(() => { overlay.style.transition = 'opacity 3s ease-out'; overlay.style.opacity = '0'; }, 5000);
-                }, 500);
-            } else if (type === 'freeze') {
-                console.warn('Client freeze received.');
-                const start = Date.now();
-                while (Date.now() - start < 15000) {}
-                window.location.reload();
-            }
-        }
-
-        window.triggerFun = async (uid, type) => {
-            if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
-            try {
-                if (uid === currentUserId) handleInteraction(type);
-                await setDoc(doc(db, 'interactions', uid), { type, sentAt: serverTimestamp() });
-                showStatus(`Sent ${type}!`);
-            } catch (e) { showStatus('Blocked.', true); }
-        };
-
-        window.triggerGlobal = async (type) => {
-            if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
-            if (type === 'freeze' && currentUserRole !== 'owner') return;
-            const msg = type === 'freeze'
-                ? 'WARNING: This will FREEZE/CRASH all connected clients for 15s. Proceed?'
-                : `Trigger GLOBAL ${type}?`;
-            if (!confirm(msg)) return;
-            try {
-                await setDoc(doc(db, 'interactions', 'global'), { type, sentAt: serverTimestamp() });
-                showStatus(`GLOBAL ${type} SENT`);
-            } catch (e) { showStatus('Blocked.', true); }
-        };
-
-        // ── USER LIST ──
-        let unsubscribeUsers = null;
-        window.setupUserObserver = () => {
-            if (unsubscribeUsers) unsubscribeUsers();
-            const list = document.getElementById('user-list');
-            list.innerHTML = "<p style='font-size:0.7rem; opacity:0.5;'>loading users...</p>";
-
-            unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-                list.innerHTML = '';
-                snapshot.forEach(docSnap => {
-                    const u    = docSnap.data();
-                    const isSelf = u.uid === currentUserId;
-                    const div  = document.createElement('div');
-                    div.className = 'user-row';
-                    const sc   = u.isOnline ? 'status-online' : 'status-offline';
-
-                    let authHtml = '';
-                    if (currentUserRole === 'owner') {
-                        authHtml = `<div style="display:flex; gap:4px;">
-                            <button style="background:${u.role==='admin'?'#ff4757':'#00d2ff'}; color:white; border:none; border-radius:4px; padding:4px 8px; font-size:0.6rem; cursor:pointer;"
-                                    onclick="window.updateRole('${u.uid}','${u.role==='admin'?'member':'admin'}')">
-                                ${u.role==='admin'?'demote':'promote'}
-                            </button>
-                            <button style="background:#000; color:white; border:none; border-radius:4px; padding:4px 8px; font-size:0.6rem; cursor:pointer;"
-                                    onclick="window.toggleBan('${u.uid}',${!u.isBanned})">
-                                ${u.isBanned?'unban':'ban'}
-                            </button>
-                        </div>`;
-                    }
-
-                    div.innerHTML = `
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                            <div style="font-size:0.7rem; display:flex; flex-direction:column;">
-                                <span><span class="status-dot ${sc}"></span>${u.displayName || 'Anon'} ${isSelf?'(you)':''} <small class="role-badge" style="font-size:0.55rem; padding:1px 4px; border-radius:4px; font-weight:900; background:rgba(128,128,128,0.3); color:white;">${u.role||'member'}</small></span>
-                                <span style="font-size:0.6rem; opacity:0.5;">${u.email||'no email'}</span>
-                            </div>
-                            ${authHtml}
-                        </div>
-                        <div style="display:flex; gap:2px; flex-wrap:wrap;">
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','shake')"    style="border:none; border-radius:4px; cursor:pointer;">📳</button>
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','invert')"   style="border:none; border-radius:4px; cursor:pointer;">🌈</button>
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','glitch')"   style="background:purple; border:none; border-radius:4px; cursor:pointer;">👾</button>
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','confetti')" style="border:none; border-radius:4px; cursor:pointer;">🎉</button>
-                            <button class="btn-fun btn-fun-danger" onclick="window.triggerFun('${u.uid}','flashbang')" style="border:none; border-radius:4px; cursor:pointer;">💣</button>
-                            <button class="btn-fun" onclick="window.triggerFun('${u.uid}','scream')"   style="background:red; border:none; border-radius:4px; cursor:pointer;">🔊</button>
-                            ${currentUserRole==='owner'?`<button class="btn-fun btn-fun-critical" onclick="window.triggerFun('${u.uid}','freeze')" style="border:none; border-radius:4px; cursor:pointer;">❄️</button>`:''}
-                        </div>`;
-                    list.appendChild(div);
-                });
-            });
-        };
-
-        window.updateRole = async (uid, newRole) => {
-            if (currentUserRole !== 'owner') return;
-            await updateDoc(doc(db, 'users', uid), { role: newRole }).catch(e => showStatus('Failed: ' + e.message, true));
-        };
-        window.toggleBan = async (uid, banState) => {
-            if (currentUserRole !== 'owner') return;
-            await updateDoc(doc(db, 'users', uid), { isBanned: banState }).catch(e => showStatus('Failed: ' + e.message, true));
-        };
-
-        // ── BROADCASTS ──
-        onSnapshot(collection(db, 'broadcasts'), (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                if (change.type === 'added' && new Date(change.doc.data().sentAt).getTime() > pageLoadTime) {
-                    const d = change.doc.data();
-                    showNotification(d.text, d.sender, false, (d.duration || 5) * 1000);
-                }
-            });
-        });
-
-        window.toggleGlobalTheme = async () => {
-            if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
-            const next = globalTheme === 'dark' ? 'light' : 'dark';
-            await setDoc(doc(db, 'config', 'timer'), { theme: next }, { merge: true });
-        };
-
-        // updateTimer: both owners AND admins can call this
-        window.updateTimer = async (n) => {
-            if (currentUserRole !== 'owner' && currentUserRole !== 'admin') return;
-            const dateVal = document.getElementById(`date-input-${n}`).value;
-            const nameVal = document.getElementById(`name-input-${n}`).value;
-            if (!dateVal || !nameVal) { showStatus(`fill in both fields for counter ${n}.`, true); return; }
-            const configKey = n === 1 ? 'timer' : `timer${n}`;
-            await setDoc(doc(db, 'config', configKey), { targetTime: dateVal, eventName: nameVal.toLowerCase() }, { merge: true });
-            showStatus(`counter ${n} updated.`);
-        };
-
-        window.sendBroadcast = async () => {
-            const input    = document.getElementById('broadcast-input');
-            const durInput = document.getElementById('broadcast-duration');
-            const text     = input.value;
-            if (!text) return;
-            const duration = parseFloat(durInput.value) || 5;
-            input.value = '';
-            const sender = auth.currentUser.displayName || auth.currentUser.email.split('@')[0];
-            try {
-                await addDoc(collection(db, 'broadcasts'), { text, sender, duration, sentAt: new Date().toISOString() });
-                showStatus('Broadcast sent!');
-            } catch (e) { showStatus('Error: ' + e.message, true); }
-        };
-
-        // ── DRAGGABLE PANEL ──
-        const panel  = document.getElementById('admin-panel');
-        const header = document.getElementById('admin-header');
-        let isDragging = false, offset = { x: 0, y: 0 };
-        header.onmousedown = (e) => { isDragging = true; offset.x = e.clientX - panel.offsetLeft; offset.y = e.clientY - panel.offsetTop; };
-        document.onmousemove = (e) => {
-            if (!isDragging) return;
-            panel.style.left = (e.clientX - offset.x) + 'px';
-            panel.style.top  = (e.clientY - offset.y) + 'px';
-            panel.style.right = 'auto'; panel.style.bottom = 'auto';
-        };
-        document.onmouseup = () => isDragging = false;
-
-        // ── COUNTDOWN ENGINE ──
-        function calcCountdown(n, targetTime) {
-            if (!targetTime) return;
-            const now    = new Date();
-            const target = new Date(targetTime);
-            const diff   = target - now;
-
-            if (diff <= 0) {
-                const nameEl = document.getElementById(`event-name-${n}`);
-                if (nameEl) nameEl.innerText = 'event live';
-                ['months','days','hours','minutes','seconds'].forEach(id => {
-                    const el = document.getElementById(`${id}-${n}`);
-                    if (el) el.innerText = '00';
-                });
-                return;
-            }
-
-            let m = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
-            let tmp = new Date(now); tmp.setMonth(now.getMonth() + m);
-            if (tmp > target) { m--; tmp = new Date(now); tmp.setMonth(now.getMonth() + m); }
-
-            const dayDiff = Math.floor((target - tmp) / (1000*60*60*24));
-            const hours   = Math.floor((diff % (1000*60*60*24)) / (1000*60*60));
-            const minutes = Math.floor((diff % (1000*60*60)) / (1000*60));
-            const seconds = Math.floor((diff % (1000*60)) / 1000);
-
-            document.getElementById(`months-${n}`).innerText  = m.toString().padStart(2,'0');
-            document.getElementById(`days-${n}`).innerText    = dayDiff.toString().padStart(2,'0');
-            document.getElementById(`hours-${n}`).innerText   = hours.toString().padStart(2,'0');
-            document.getElementById(`minutes-${n}`).innerText = minutes.toString().padStart(2,'0');
-            document.getElementById(`seconds-${n}`).innerText = seconds.toString().padStart(2,'0');
-        }
-
-        // Tick all active counters every second
-        setInterval(() => {
-            for (let i = 1; i <= counterCount; i++) calcCountdown(i, targetTimes[i]);
-        }, 1000);
-
-        // ── PARTICLE SYSTEM ──
-        const canvas = document.getElementById('particle-canvas');
-        const ctx    = canvas.getContext('2d');
-        let particles = [];
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.onresize = resize; resize();
-
-        class Particle {
-            constructor() {
-                this.x = Math.random()*canvas.width; this.y = Math.random()*canvas.height;
-                this.size = Math.random()*6+2; this.speed = Math.random()*0.12+0.05;
-                this.angle = Math.random()*360; this.rot = Math.random()*0.5-0.25;
-            }
-            update() { this.y -= this.speed; this.angle += this.rot; if (this.y < -this.size) this.y = canvas.height+this.size; }
-            draw() {
-                ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle*Math.PI/180);
-                const color = getComputedStyle(document.body).getPropertyValue('--particle-color');
-                ctx.fillStyle = `rgba(${color}, 0.1)`;
-                ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
-                ctx.restore();
-            }
-        }
-        for (let i = 0; i < 35; i++) particles.push(new Particle());
-        function animate() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            particles.forEach(p => { p.update(); p.draw(); });
-            requestAnimationFrame(animate);
-        }
-        animate();
-    </script>
+// ── PARTICLES ──
+const pCvs=document.getElementById('particle-canvas');
+const pCtx=pCvs.getContext('2d');
+let particles=[];
+function resize(){ pCvs.width=window.innerWidth; pCvs.height=window.innerHeight; }
+window.addEventListener('resize',resize); resize();
+class Particle{
+  constructor(){ this.x=Math.random()*pCvs.width; this.y=Math.random()*pCvs.height; this.size=Math.random()*6+2; this.speed=Math.random()*.12+.05; this.angle=Math.random()*360; this.rot=Math.random()*.5-.25; }
+  update(){ this.y-=this.speed; this.angle+=this.rot; if(this.y<-this.size) this.y=pCvs.height+this.size; }
+  draw(){ pCtx.save(); pCtx.translate(this.x,this.y); pCtx.rotate(this.angle*Math.PI/180); const c=getComputedStyle(document.body).getPropertyValue('--particle-color'); pCtx.fillStyle=`rgba(${c},.1)`; pCtx.fillRect(-this.size/2,-this.size/2,this.size,this.size); pCtx.restore(); }
+}
+for(let i=0;i<35;i++) particles.push(new Particle());
+(function animate(){ pCtx.clearRect(0,0,pCvs.width,pCvs.height); particles.forEach(p=>{p.update();p.draw();}); requestAnimationFrame(animate); })();
+</script>
 </body>
 </html>
