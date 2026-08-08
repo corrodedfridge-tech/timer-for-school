@@ -78,15 +78,37 @@ input{width:100%;padding:8px;margin:5px 0;border:1px solid rgba(128,128,128,.3);
 #add-counter-btn{width:100%;background:transparent;color:#ffd700;border:1px dashed rgba(255,215,0,.4);padding:8px;border-radius:6px;cursor:pointer;font-weight:900;font-size:.75rem;transition:background .2s,border-color .2s;font-family:inherit;text-transform:lowercase;}
 #add-counter-btn:hover{background:rgba(255,215,0,.08);border-color:rgba(255,215,0,.7);}
 
+/* TOP-LEFT BUTTONS */
+#tl-buttons{position:fixed;top:15px;left:20px;display:flex;gap:8px;z-index:300;align-items:center;}
+.tl-btn{background:none;border:1px solid rgba(128,128,128,.25);color:var(--text);border-radius:8px;padding:4px 10px;font-size:.9rem;cursor:pointer;opacity:.55;transition:opacity .2s,background .2s;font-family:inherit;}
+.tl-btn:hover{opacity:1;background:rgba(128,128,128,.1);}
+
 /* MINI GAME */
-#game-btn{position:fixed;bottom:78px;left:20px;background:none;border:1px solid rgba(128,128,128,.25);color:var(--text);border-radius:8px;padding:5px 10px;font-size:.95rem;cursor:pointer;z-index:200;opacity:.55;transition:opacity .2s,background .2s;}
-#game-btn:hover{opacity:1;background:rgba(128,128,128,.1);}
-#game-panel{display:none;position:fixed;bottom:118px;left:20px;background:var(--panel-bg);border:1px solid rgba(128,128,128,.2);border-radius:12px;overflow:hidden;z-index:1500;box-shadow:0 10px 40px rgba(0,0,0,.5);}
+#game-panel{display:none;position:fixed;top:50px;left:20px;background:var(--panel-bg);border:1px solid rgba(128,128,128,.2);border-radius:12px;overflow:hidden;z-index:1500;box-shadow:0 10px 40px rgba(0,0,0,.5);}
 #game-hdr{padding:8px 12px;background:rgba(0,0,0,.3);font-size:.7rem;font-weight:900;display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;}
 #game-hdr button{background:none;border:none;color:var(--text);cursor:pointer;font-size:.9rem;line-height:1;padding:0;opacity:.6;}
 #game-hdr button:hover{opacity:1;}
 #game-canvas{display:block;}
 #game-hint{text-align:center;font-size:.6rem;opacity:.35;padding:4px 0 6px;font-weight:700;}
+
+/* LEADERBOARD MODAL */
+#lb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:3000;backdrop-filter:blur(6px);align-items:center;justify-content:center;}
+#lb-overlay.open{display:flex;}
+#lb-modal{background:var(--panel-bg);border:1px solid rgba(128,128,128,.2);border-radius:16px;width:340px;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden;}
+#lb-modal-hdr{padding:14px 16px;background:rgba(0,0,0,.25);display:flex;justify-content:space-between;align-items:center;font-size:.8rem;font-weight:900;flex-shrink:0;}
+#lb-modal-hdr button{background:none;border:none;color:var(--text);cursor:pointer;font-size:1.1rem;opacity:.6;padding:0;line-height:1;}
+#lb-modal-hdr button:hover{opacity:1;}
+#lb-list{overflow-y:auto;padding:12px 16px;flex:1;}
+.lb-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(128,128,128,.1);font-size:.75rem;font-weight:700;}
+.lb-row:last-child{border-bottom:none;}
+.lb-rank{width:24px;text-align:center;opacity:.4;font-size:.65rem;font-weight:900;}
+.lb-rank.gold{color:#ffd700;opacity:1;}
+.lb-rank.silver{color:#c0c0c0;opacity:1;}
+.lb-rank.bronze{color:#cd7f32;opacity:1;}
+.lb-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.85;}
+.lb-score{font-size:.8rem;font-weight:900;opacity:.9;letter-spacing:.5px;}
+.lb-you{color:#2ed573;}
+#lb-empty{font-size:.7rem;opacity:.4;text-align:center;padding:30px 0;}
 </style>
 </head>
 <body data-theme="dark">
@@ -127,8 +149,24 @@ input{width:100%;padding:8px;margin:5px 0;border:1px solid rgba(128,128,128,.3);
   <button onclick="window.togglePersonalTheme()" style="background:none;border:none;color:inherit;font-size:1.2rem;cursor:pointer;">🌓</button>
 </div>
 
-<!-- MINI GAME BUTTON + PANEL -->
-<button id="game-btn" onclick="window.toggleGame()">🎮</button>
+<!-- TOP-LEFT: GAME + LEADERBOARD BUTTONS -->
+<div id="tl-buttons">
+  <button class="tl-btn" onclick="window.toggleGame()" title="void.dash">🎮</button>
+  <button class="tl-btn" onclick="window.toggleLB()" title="leaderboard">🏆</button>
+</div>
+
+<!-- LEADERBOARD MODAL -->
+<div id="lb-overlay" onclick="if(event.target===this)window.toggleLB()">
+  <div id="lb-modal">
+    <div id="lb-modal-hdr">
+      <span>🏆 void.dash leaderboard</span>
+      <button onclick="window.toggleLB()">&#215;</button>
+    </div>
+    <div id="lb-list"><div id="lb-empty">no scores yet. play void.dash!</div></div>
+  </div>
+</div>
+
+<!-- MINI GAME PANEL -->
 <div id="game-panel">
   <div id="game-hdr">
     <span>void.dash</span>
@@ -178,7 +216,7 @@ input{width:100%;padding:8px;margin:5px 0;border:1px solid rgba(128,128,128,.3);
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore,doc,onSnapshot,setDoc,collection,addDoc,updateDoc,getDoc,deleteDoc,serverTimestamp }
+import { getFirestore,doc,onSnapshot,setDoc,collection,addDoc,updateDoc,getDoc,deleteDoc,serverTimestamp,query,orderBy,limit }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth,signInWithPopup,GoogleAuthProvider,onAuthStateChanged,signOut }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -632,7 +670,14 @@ function gameLoop(){
     for(const o of gObs){
       if(px<o.x+o.w&&px+pw>o.x&&py<o.y+o.h&&py+ph>o.y){
         gState='dead';
-        if(gScore>gBest){ gBest=gScore; localStorage.setItem('vd-best',gBest.toFixed(2)); }
+        if(gScore>gBest){
+          gBest=gScore; localStorage.setItem('vd-best',gBest.toFixed(2));
+          // save to Firebase if logged in
+          if(currentUserId){
+            const name=auth.currentUser?.displayName||auth.currentUser?.email?.split('@')[0]||'anon';
+            setDoc(doc(db,'void_scores',currentUserId),{displayName:name,score:parseFloat(gScore.toFixed(2)),updatedAt:serverTimestamp()}).catch(()=>{});
+          }
+        }
         document.getElementById('game-hint').innerText='space to retry';
         break;
       }
@@ -659,6 +704,32 @@ function gameLoop(){
   }
   gRaf=requestAnimationFrame(gameLoop);
 }
+
+// ── LEADERBOARD ──
+window.toggleLB=()=>{
+  const ov=document.getElementById('lb-overlay');
+  ov.classList.toggle('open');
+};
+
+// live leaderboard — top 20 scores, real-time
+onSnapshot(query(collection(db,'void_scores'),orderBy('score','desc'),limit(20)),snap=>{
+  const list=document.getElementById('lb-list');
+  if(!list) return;
+  if(snap.empty){ list.innerHTML='<div id="lb-empty">no scores yet. play void.dash!</div>'; return; }
+  const medals=['gold','silver','bronze'];
+  list.innerHTML='';
+  snap.docs.forEach((ds,i)=>{
+    const d=ds.data();
+    const isYou=ds.id===currentUserId;
+    const row=document.createElement('div'); row.className='lb-row';
+    const rankClass=medals[i]||'';
+    row.innerHTML=`
+      <div class="lb-rank ${rankClass}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
+      <div class="lb-name ${isYou?'lb-you':''}">${(d.displayName||'anon').toLowerCase()}${isYou?' (you)':''}</div>
+      <div class="lb-score">${parseFloat(d.score).toFixed(1)}s</div>`;
+    list.appendChild(row);
+  });
+});
 
 window.toggleGame=()=>{
   const gp=document.getElementById('game-panel');
