@@ -35,7 +35,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);marg
 
 /* CAROUSEL */
 #carousel-track{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;pointer-events:none;}
-.counter-slide{position:absolute;display:flex;flex-direction:column;align-items:center;text-align:center;pointer-events:auto;transition:transform .6s cubic-bezier(.25,.46,.45,.94),opacity .6s cubic-bezier(.25,.46,.45,.94),filter .6s ease,scale .6s cubic-bezier(.34,1.3,.64,1);will-change:transform,opacity,filter;}
+.counter-slide{position:absolute;top:50%;left:50%;display:flex;flex-direction:column;align-items:center;text-align:center;pointer-events:auto;transition:transform .6s cubic-bezier(.25,.46,.45,.94),opacity .6s cubic-bezier(.25,.46,.45,.94),filter .6s ease;will-change:transform,opacity,filter;}
 h1{font-size:1.8rem;font-weight:700;margin:0 0 1.2rem;text-shadow:0 0 8px var(--shadow);letter-spacing:-1px;}
 .timer-container{display:flex;gap:15px;text-align:center;flex-wrap:wrap;justify-content:center;}
 .unit-group{display:flex;flex-direction:column;align-items:center;min-width:70px;}
@@ -83,13 +83,14 @@ input{width:100%;padding:8px;margin:5px 0;border:1px solid rgba(128,128,128,.3);
 .tl-btn{background:none;border:1px solid rgba(128,128,128,.25);color:var(--text);border-radius:8px;padding:4px 10px;font-size:.9rem;cursor:pointer;opacity:.55;transition:opacity .2s,background .2s;font-family:inherit;}
 .tl-btn:hover{opacity:1;background:rgba(128,128,128,.1);}
 
-/* MINI GAME */
-#game-panel{display:none;position:fixed;top:50px;left:20px;background:var(--panel-bg);border:1px solid rgba(128,128,128,.2);border-radius:12px;overflow:hidden;z-index:1500;box-shadow:0 10px 40px rgba(0,0,0,.5);}
-#game-hdr{padding:8px 12px;background:rgba(0,0,0,.3);font-size:.7rem;font-weight:900;display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;}
-#game-hdr button{background:none;border:none;color:var(--text);cursor:pointer;font-size:.9rem;line-height:1;padding:0;opacity:.6;}
+/* MINI GAME - FULLSCREEN */
+#game-panel{display:none;position:fixed;inset:0;background:var(--bg);z-index:5000;flex-direction:column;}
+#game-panel.gopen{display:flex;}
+#game-hdr{padding:10px 16px;background:rgba(0,0,0,.4);font-size:.75rem;font-weight:900;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+#game-hdr button{background:none;border:none;color:var(--text);cursor:pointer;font-size:1rem;line-height:1;padding:0;opacity:.6;}
 #game-hdr button:hover{opacity:1;}
-#game-canvas{display:block;}
-#game-hint{text-align:center;font-size:.6rem;opacity:.35;padding:4px 0 6px;font-weight:700;}
+#game-canvas{display:block;flex:1;width:100%;}
+#game-hint{text-align:center;font-size:.65rem;opacity:.4;padding:6px 0 10px;font-weight:700;flex-shrink:0;letter-spacing:.5px;}
 
 /* LEADERBOARD MODAL */
 #lb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:3000;backdrop-filter:blur(6px);align-items:center;justify-content:center;}
@@ -217,10 +218,14 @@ input{width:100%;padding:8px;margin:5px 0;border:1px solid rgba(128,128,128,.3);
 <div id="game-panel">
   <div id="game-hdr">
     <span>void.dash</span>
-    <button onclick="window.toggleGame()">&#215;</button>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <span id="game-powerup-hud" style="font-size:.65rem;opacity:.7;"></span>
+      <span style="font-size:.6rem;opacity:.35;">esc to close</span>
+      <button onclick="window.toggleGame()" style="font-size:1.2rem;">&#215;</button>
+    </div>
   </div>
-  <canvas id="game-canvas" width="300" height="170"></canvas>
-  <div id="game-hint">space to start &nbsp;·&nbsp; w/s to move</div>
+  <canvas id="game-canvas"></canvas>
+  <div id="game-hint">space to start &nbsp;·&nbsp; w / s to move &nbsp;·&nbsp; avoid walls &nbsp;·&nbsp; collect power-ups</div>
 </div>
 
 <!-- ADMIN PANEL -->
@@ -335,7 +340,7 @@ function updateCarousel(){
     const op=abs===0?1:Math.max(0, 1-abs*0.55);
     const blur=abs===0?0:Math.min(6,abs*2.5);
     const brightness=abs===0?1:Math.max(0.3,1-abs*0.35);
-    s.style.transform=`translateX(${tx}px) scale(${sc})`;
+    s.style.transform=`translate(calc(-50% + ${tx}px), -50%) scale(${sc})`;
     s.style.opacity=op;
     s.style.filter=abs===0?'none':`blur(${blur}px) brightness(${brightness})`;
     s.style.zIndex=20-abs;
@@ -384,9 +389,12 @@ window.shiftCarousel=(dir)=>{
 // keyboard
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
-  if(e.key==='ArrowLeft'){  e.preventDefault(); window.shiftCarousel(-1); }
-  if(e.key==='ArrowRight'){ e.preventDefault(); window.shiftCarousel(1); }
-  if(e.key===' ' && document.getElementById('game-panel').style.display==='block'){
+  if(!document.getElementById('game-panel').classList.contains('gopen')){
+    if(e.key==='ArrowLeft'){  e.preventDefault(); window.shiftCarousel(-1); }
+    if(e.key==='ArrowRight'){ e.preventDefault(); window.shiftCarousel(1); }
+  }
+  if(e.key==='Escape'){ if(document.getElementById('game-panel').classList.contains('gopen')) window.toggleGame(); return; }
+  if(e.key===' ' && document.getElementById('game-panel').classList.contains('gopen')){
     e.preventDefault();
     if(gState==='idle'||gState==='dead') startGame();
   }
@@ -406,6 +414,16 @@ window.addEventListener('resize', updateCarousel);
 
 // ── COUNTER MANAGEMENT ──
 function handleCounterCount(n){
+  if(n < counterCount){
+    // Full rebuild on shrink
+    activeIdx=Math.min(activeIdx,Math.max(0,n-1));
+    document.getElementById('carousel-track').innerHTML='';
+    document.getElementById('counter-configs').innerHTML='';
+    Object.values(counterUnsubs).forEach(u=>{ try{u();}catch(e){} });
+    Object.keys(counterUnsubs).forEach(k=>delete counterUnsubs[k]);
+    Object.keys(targetTimes).forEach(k=>delete targetTimes[k]);
+    renderedCount=0; adminCount=0;
+  }
   for(let i=renderedCount+1;i<=n;i++) addCounterToPage(i);
   renderedCount=n;
   for(let i=adminCount+1;i<=n;i++) addCounterConfigToAdmin(i);
@@ -707,87 +725,387 @@ function calcCountdown(n,t){
 setInterval(()=>{ for(let i=1;i<=counterCount;i++) calcCountdown(i,targetTimes[i]); },1000);
 
 // ── MINI GAME: VOID.DASH ──
-const GW=300, GH=170;
-const gCvs=document.getElementById('game-canvas');
-const gCtx=gCvs.getContext('2d');
-const gKeys={};
-let gState='idle', gScore=0, gBest=parseFloat(localStorage.getItem('vd-best')||'0');
-let gFrame=0, gSpeed=2.2, gSpawnCd=0, gSpawnRate=65;
-let gPlayer={x:34,y:GH/2,w:9,h:9};
-let gObs=[], gRaf=null;
+const gCvs = document.getElementById('game-canvas');
+const gCtx = gCvs.getContext('2d');
+const gKeys = {};
+let GW = window.innerWidth, GH = 600;
 
-function startGame(){
-  gState='playing'; gScore=0; gFrame=0; gSpeed=2.2; gSpawnRate=65; gSpawnCd=0;
-  gPlayer={x:34,y:GH/2,w:9,h:9}; gObs=[];
-  document.getElementById('game-hint').innerText='w / s to move · dodge the squares';
+// ── game state ──
+let gState = 'idle';
+let gScore = 0, gBest = parseFloat(localStorage.getItem('vd-best') || '0');
+let gFrame = 0, gBaseSpd = 0, gSpawnCd = 0, gSpawnRate = 0;
+let gPlayer = { x: 0, y: 0, w: 14, h: 14 };
+let gWalls = [], gPowerups = [], gParticles = [], gRaf = null;
+let gScreenShake = 0;
+
+// power-up timers
+let slowUntil = 0, hasShield = false, ghostUntil = 0, smallUntil = 0;
+const PU_TYPES  = ['slow','shield','ghost','small'];
+const PU_COLORS = { slow:'#ff9f43', shield:'#00d2ff', ghost:'#a55eea', small:'#2ed573' };
+const PU_ICONS  = { slow:'S', shield:'◈', ghost:'G', small:'↕' };
+
+// ── helpers ──
+function gSpd()   { return hasSlowActive() ? gBaseSpd * 0.42 : gBaseSpd; }
+function hasSlowActive() { return Date.now() < slowUntil; }
+function hasGhost()      { return Date.now() < ghostUntil; }
+function isSmall()       { return Date.now() < smallUntil; }
+function getBG()  { return getComputedStyle(document.body).getPropertyValue('--bg').trim()   || '#1a1a1c'; }
+function getTX()  { return getComputedStyle(document.body).getPropertyValue('--text').trim() || '#e0e0e0'; }
+
+// ── resize: called on open & window resize only, NOT per frame ──
+function resizeGame() {
+  const hdr  = document.getElementById('game-hdr');
+  const hint = document.getElementById('game-hint');
+  GW = window.innerWidth;
+  GH = window.innerHeight - (hdr ? hdr.offsetHeight : 44) - (hint ? hint.offsetHeight : 34);
+  gCvs.width  = GW;
+  gCvs.height = GH;
+  // if idle, reposition player preview
+  if (gState === 'idle') gPlayer = { x: GW * 0.1, y: GH / 2, w: 14, h: 14 };
 }
 
-function gameLoop(){
-  const bg=getComputedStyle(document.body).getPropertyValue('--bg').trim()||'#1a1a1c';
-  const tx=getComputedStyle(document.body).getPropertyValue('--text').trim()||'#e0e0e0';
-  gCtx.fillStyle=bg; gCtx.fillRect(0,0,GW,GH);
+// ── spawning ──
+function spawnWall() {
+  const wallW    = Math.round(20 + Math.random() * 18);
+  const progress = Math.min(1, gFrame / 3600);                  // 0→1 over 60s
+  const gapH     = Math.max(GH * 0.16, GH * 0.3 - progress * GH * 0.14);
+  const gapY     = 30 + Math.random() * (GH - gapH - 60);
+  const breakable = Math.random() < 0.42;
+  gWalls.push({
+    x: GW + wallW, gapY, gapH, w: wallW,
+    breakable, cracking: false, crackAlpha: 0,
+    broken: false, splitTop: 0, splitBot: 0
+  });
+}
 
-  if(gState==='idle'){
-    gCtx.textAlign='center'; gCtx.fillStyle=tx;
-    gCtx.globalAlpha=.85; gCtx.font='bold 12px Roboto,sans-serif';
-    gCtx.fillText('void.dash',GW/2,GH/2-20);
-    gCtx.globalAlpha=.4; gCtx.font='bold 9px Roboto,sans-serif';
-    gCtx.fillText('press space to start',GW/2,GH/2-2);
-    gCtx.fillText('w / s to move',GW/2,GH/2+14);
-    if(gBest>0) gCtx.fillText(`best: ${gBest.toFixed(1)}s`,GW/2,GH/2+30);
-    gCtx.globalAlpha=.5; gCtx.fillRect(gPlayer.x,gPlayer.y-gPlayer.h/2,gPlayer.w,gPlayer.h);
-    gCtx.globalAlpha=1;
+function spawnPowerup() {
+  const type = PU_TYPES[Math.floor(Math.random() * PU_TYPES.length)];
+  const sz = 26;
+  gPowerups.push({ x: GW + sz, y: 50 + Math.random() * (GH - 100), w: sz, h: sz, type, glow: 0, collected: false });
+}
 
-  } else if(gState==='playing'){
-    gFrame++; gScore=gFrame/60;
-    gSpeed=2.2+gFrame*0.0018; gSpawnRate=Math.max(28,65-gFrame*0.06);
-    gSpawnCd--;
-    if(gSpawnCd<=0){
-      gSpawnCd=Math.floor(gSpawnRate);
-      const h=13+Math.random()*40, y=5+Math.random()*(GH-h-10);
-      gObs.push({x:GW+4,y,w:9+Math.random()*7,h});
+function spawnParticles(x, y, col, n, spd = 4) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = 1 + Math.random() * spd;
+    gParticles.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s, life: 1, col, sz: 2+Math.random()*3 });
+  }
+}
+
+// ── start / reset ──
+function startGame() {
+  gState     = 'playing';
+  gScore     = 0; gFrame = 0;
+  gBaseSpd   = GW * 0.0045;   // ~6-7px/frame on 1440px screen — feels fast
+  gSpawnRate = 95;
+  gSpawnCd   = 40;             // short delay before first wall
+  slowUntil  = 0; hasShield = false; ghostUntil = 0; smallUntil = 0;
+  gPlayer    = { x: GW * 0.1, y: GH / 2, w: 14, h: 14 };
+  gWalls = []; gPowerups = []; gParticles = [];
+  gScreenShake = 0;
+  document.getElementById('game-hint').innerText = 'w / s · avoid walls · break them · grab power-ups';
+  document.getElementById('game-powerup-hud').innerText = '';
+}
+
+// ── main loop ──
+function gameLoop() {
+  const bg = getBG(), tx = getTX();
+
+  // screen shake offset
+  const shakeX = gScreenShake > 0 ? (Math.random()-0.5)*gScreenShake*8 : 0;
+  const shakeY = gScreenShake > 0 ? (Math.random()-0.5)*gScreenShake*8 : 0;
+  if (gScreenShake > 0) gScreenShake = Math.max(0, gScreenShake - 0.08);
+
+  gCtx.save();
+  gCtx.translate(shakeX, shakeY);
+  gCtx.fillStyle = bg;
+  gCtx.fillRect(-10, -10, GW+20, GH+20);
+
+  const now = Date.now();
+  const pw  = isSmall() ? 8 : 14;
+  const ph  = pw;
+  gPlayer.w = pw; gPlayer.h = ph;
+
+  // ── IDLE SCREEN ──
+  if (gState === 'idle') {
+    const bigF = Math.max(20, Math.round(GH * 0.05));
+    const smF  = Math.max(12, Math.round(GH * 0.024));
+    gCtx.textAlign = 'center'; gCtx.fillStyle = tx;
+    gCtx.globalAlpha = .9;
+    gCtx.font = `900 ${bigF}px Roboto,sans-serif`;
+    gCtx.fillText('void.dash', GW/2, GH/2 - GH*0.1);
+    gCtx.globalAlpha = .4;
+    gCtx.font = `700 ${smF}px Roboto,sans-serif`;
+    gCtx.fillText('space to start', GW/2, GH/2 - GH*0.02);
+    gCtx.fillText('w / s to move  ·  graze breakable walls to split them  ·  collect power-ups', GW/2, GH/2 + GH*0.04);
+    // power-up legend
+    const legY = GH/2 + GH*0.13;
+    const legItems = [
+      { col:'#ff9f43', label:'slow' },
+      { col:'#00d2ff', label:'shield' },
+      { col:'#a55eea', label:'ghost' },
+      { col:'#2ed573', label:'small' }
+    ];
+    const spacing = 110;
+    const startX = GW/2 - spacing*1.5;
+    legItems.forEach((it, i) => {
+      gCtx.globalAlpha = .5;
+      gCtx.fillStyle = it.col;
+      gCtx.fillRect(startX + i*spacing - 8, legY-10, 16, 16);
+      gCtx.globalAlpha = .35;
+      gCtx.fillStyle = tx;
+      gCtx.font = `700 ${Math.max(10,Math.round(smF*0.8))}px Roboto,sans-serif`;
+      gCtx.fillText(it.label, startX + i*spacing, legY + 22);
+    });
+    if (gBest > 0) {
+      gCtx.globalAlpha = .2;
+      gCtx.fillStyle = tx;
+      gCtx.font = `700 ${smF}px Roboto,sans-serif`;
+      gCtx.fillText(`best: ${gBest.toFixed(1)}s`, GW/2, GH - 30);
     }
-    if(gKeys['w']||gKeys['W']) gPlayer.y=Math.max(gPlayer.h/2+3,gPlayer.y-3);
-    if(gKeys['s']||gKeys['S']) gPlayer.y=Math.min(GH-gPlayer.h/2-3,gPlayer.y+3);
-    gObs.forEach(o=>o.x-=gSpeed);
-    gObs=gObs.filter(o=>o.x+o.w>-5);
-    const px=gPlayer.x, py=gPlayer.y-gPlayer.h/2, pw=gPlayer.w, ph=gPlayer.h;
-    for(const o of gObs){
-      if(px<o.x+o.w&&px+pw>o.x&&py<o.y+o.h&&py+ph>o.y){
-        gState='dead';
-        if(gScore>gBest){
-          gBest=gScore; localStorage.setItem('vd-best',gBest.toFixed(2));
-          // save to Firebase if logged in
-          if(currentUserId){
-            const name=auth.currentUser?.displayName||auth.currentUser?.email?.split('@')[0]||'anon';
-            setDoc(doc(db,'void_scores',currentUserId),{displayName:name,score:parseFloat(gScore.toFixed(2)),updatedAt:serverTimestamp()}).catch(()=>{});
+    // idle player square
+    gCtx.globalAlpha = .7; gCtx.fillStyle = tx;
+    gCtx.fillRect(gPlayer.x - pw/2, gPlayer.y - ph/2, pw, ph);
+    gCtx.globalAlpha = 1;
+
+  // ── PLAYING ──
+  } else if (gState === 'playing') {
+    gFrame++;
+    gScore    = gFrame / 60;
+    gBaseSpd  = GW * (0.0045 + Math.min(gFrame * 0.0000015, 0.004));  // ramps up gently
+    gSpawnRate = Math.max(50, 95 - gFrame * 0.07);
+
+    gSpawnCd--;
+    if (gSpawnCd <= 0) { gSpawnCd = Math.floor(gSpawnRate); spawnWall(); }
+    if (gFrame % 300 === 0) spawnPowerup();
+
+    const sp = gSpd();
+    const moveSpd = GH * 0.0075;
+    if (gKeys['w']||gKeys['W']||gKeys['ArrowUp'])   gPlayer.y = Math.max(ph/2+3, gPlayer.y - moveSpd);
+    if (gKeys['s']||gKeys['S']||gKeys['ArrowDown'])  gPlayer.y = Math.min(GH-ph/2-3, gPlayer.y + moveSpd);
+
+    const px = gPlayer.x - pw/2, py = gPlayer.y - ph/2;
+    const ghost = hasGhost();
+
+    // ── WALLS ──
+    let playerDied = false;
+    for (const w of gWalls) {
+      // move
+      if (!w.broken) w.x -= sp;
+      else { w.splitTop -= 9; w.splitBot += 9; }   // halves fly apart
+
+      // crack detection: player passes THROUGH gap within 8px of edge → crack breakable wall
+      if (w.breakable && !w.broken && !w.cracking) {
+        const overlapX = px + pw > w.x && px < w.x + w.w;
+        const inGapY   = py + ph > w.gapY && py < w.gapY + w.gapH;  // player is inside gap
+        const grazeTop = Math.abs(py - w.gapY) < 9;
+        const grazeBot = Math.abs((py + ph) - (w.gapY + w.gapH)) < 9;
+        if (overlapX && inGapY && (grazeTop || grazeBot)) w.cracking = true;
+      }
+      if (w.cracking && !w.broken) {
+        w.crackAlpha = Math.min(1, w.crackAlpha + 0.14);
+        if (w.crackAlpha >= 1) {
+          w.broken = true;
+          spawnParticles(w.x + w.w/2, w.gapY, tx, 12, 5);
+          spawnParticles(w.x + w.w/2, w.gapY + w.gapH, tx, 12, 5);
+        }
+      }
+
+      // ── DRAW WALL ──
+      gCtx.fillStyle = tx;
+      if (w.broken) {
+        // top half slides up, bottom half slides down
+        const alpha = Math.max(0, 0.7 - Math.abs(w.splitTop) / (GH * 0.6));
+        gCtx.globalAlpha = alpha;
+        gCtx.fillRect(w.x, w.splitTop, w.w, w.gapY);                     // top piece
+        gCtx.fillRect(w.x, w.gapY + w.gapH + w.splitBot, w.w, GH);       // bottom piece (overshoots—fine, clipped)
+      } else if (w.breakable) {
+        // dashed / semi-transparent to signal breakable
+        gCtx.globalAlpha = 0.38 + w.crackAlpha * 0.25;
+        gCtx.fillRect(w.x, 0, w.w, w.gapY);
+        gCtx.fillRect(w.x, w.gapY + w.gapH, w.w, GH - (w.gapY + w.gapH));
+        // gap edge markers
+        gCtx.globalAlpha = 0.55 + w.crackAlpha * 0.3;
+        gCtx.fillRect(w.x, w.gapY - 3, w.w, 3);
+        gCtx.fillRect(w.x, w.gapY + w.gapH, w.w, 3);
+        // crack lines when cracking
+        if (w.crackAlpha > 0) {
+          gCtx.globalAlpha = w.crackAlpha * 0.9;
+          gCtx.strokeStyle = tx; gCtx.lineWidth = 1.5;
+          // top crack
+          gCtx.beginPath(); gCtx.moveTo(w.x+w.w*0.3, w.gapY-2); gCtx.lineTo(w.x+w.w*0.6, w.gapY-12); gCtx.lineTo(w.x+w.w*0.8, w.gapY-6); gCtx.stroke();
+          // bottom crack
+          gCtx.beginPath(); gCtx.moveTo(w.x+w.w*0.7, w.gapY+w.gapH+2); gCtx.lineTo(w.x+w.w*0.3, w.gapY+w.gapH+12); gCtx.lineTo(w.x+w.w*0.5, w.gapY+w.gapH+7); gCtx.stroke();
+        }
+      } else {
+        // solid wall
+        gCtx.globalAlpha = 0.82;
+        gCtx.fillRect(w.x, 0, w.w, w.gapY);
+        gCtx.fillRect(w.x, w.gapY + w.gapH, w.w, GH - (w.gapY + w.gapH));
+      }
+      gCtx.globalAlpha = 1;
+
+      // ── COLLISION ──
+      if (!w.broken && !ghost) {
+        const hitTop = px < w.x+w.w && px+pw > w.x && py < w.gapY;
+        const hitBot = px < w.x+w.w && px+pw > w.x && py+ph > w.gapY+w.gapH;
+        if (hitTop || hitBot) {
+          if (hasShield) {
+            hasShield = false;
+            w.broken = true; w.cracking = false;
+            gScreenShake = 0.6;
+            spawnParticles(w.x+w.w/2, hitTop?w.gapY/2:(w.gapY+w.gapH+(GH-(w.gapY+w.gapH))/2), '#00d2ff', 24, 6);
+          } else {
+            playerDied = true; break;
           }
         }
-        document.getElementById('game-hint').innerText='space to retry';
-        break;
       }
     }
-    gCtx.fillStyle=tx;
-    gObs.forEach(o=>{ gCtx.globalAlpha=.22; gCtx.fillRect(o.x,o.y,o.w,o.h); });
-    gCtx.globalAlpha=1; gCtx.fillRect(px,py,pw,ph);
-    gCtx.globalAlpha=.45; gCtx.font='bold 9px Roboto,sans-serif';
-    gCtx.textAlign='left'; gCtx.fillText(`${gScore.toFixed(1)}s`,5,13);
-    gCtx.textAlign='right'; gCtx.fillText(`best: ${gBest.toFixed(1)}s`,GW-5,13);
-    gCtx.globalAlpha=1;
+    gWalls = gWalls.filter(w => w.x + w.w > -80 && w.splitTop > -(GH*1.5));
 
-  } else if(gState==='dead'){
-    gCtx.fillStyle=tx;
-    gObs.forEach(o=>{ gCtx.globalAlpha=.15; gCtx.fillRect(o.x,o.y,o.w,o.h); });
-    gCtx.globalAlpha=.35; gCtx.fillRect(gPlayer.x,gPlayer.y-gPlayer.h/2,gPlayer.w,gPlayer.h);
-    gCtx.textAlign='center';
-    gCtx.globalAlpha=.85; gCtx.font='bold 12px Roboto,sans-serif';
-    gCtx.fillText('you died.',GW/2,GH/2-12);
-    gCtx.globalAlpha=.4; gCtx.font='bold 9px Roboto,sans-serif';
-    gCtx.fillText(`${gScore.toFixed(1)}s survived`,GW/2,GH/2+6);
-    if(gScore>=gBest&&gBest>0) gCtx.fillText('new best!',GW/2,GH/2+22);
-    gCtx.globalAlpha=1;
+    if (playerDied) { killPlayer(px, py, pw, ph); }
+
+    // ── POWER-UPS ──
+    gPowerups.forEach(p => {
+      if (p.collected) return;
+      p.x -= sp * 0.65;
+      p.glow = (p.glow + 0.07) % (Math.PI * 2);
+      const pulse = 0.5 + Math.sin(p.glow) * 0.35;
+
+      // outer glow
+      gCtx.fillStyle = PU_COLORS[p.type];
+      gCtx.globalAlpha = pulse * 0.35;
+      gCtx.beginPath();
+      gCtx.arc(p.x + p.w/2, p.y + p.h/2, p.w * 1.1, 0, Math.PI*2);
+      gCtx.fill();
+
+      // box
+      gCtx.globalAlpha = 0.85;
+      gCtx.fillRect(p.x, p.y, p.w, p.h);
+
+      // icon
+      gCtx.globalAlpha = 1;
+      gCtx.fillStyle = '#000';
+      gCtx.font = `900 ${Math.round(p.w*0.52)}px Roboto,sans-serif`;
+      gCtx.textAlign = 'center';
+      gCtx.fillText(PU_ICONS[p.type], p.x + p.w/2, p.y + p.h*0.72);
+
+      // collect
+      if (!playerDied && px < p.x+p.w && px+pw > p.x && py < p.y+p.h && py+ph > p.y) {
+        collectPowerup(p);
+      }
+    });
+    gCtx.globalAlpha = 1;
+    gPowerups = gPowerups.filter(p => p.x + p.w > -20 && !p.collected);
+
+    // ── PARTICLES ──
+    gParticles.forEach(p => {
+      p.x  += p.vx; p.y += p.vy;
+      p.vx *= 0.91; p.vy *= 0.91;
+      p.life -= 0.032;
+      gCtx.globalAlpha = Math.max(0, p.life);
+      gCtx.fillStyle = p.col;
+      gCtx.fillRect(p.x - p.sz/2, p.y - p.sz/2, p.sz, p.sz);
+    });
+    gCtx.globalAlpha = 1;
+    gParticles = gParticles.filter(p => p.life > 0);
+
+    // ── PLAYER ──
+    gCtx.fillStyle = tx;
+    if (ghost) {
+      gCtx.globalAlpha = 0.35;
+      gCtx.shadowColor = '#a55eea'; gCtx.shadowBlur = 20;
+    } else if (hasShield) {
+      gCtx.shadowColor = '#00d2ff'; gCtx.shadowBlur = 18;
+      gCtx.strokeStyle = '#00d2ff'; gCtx.lineWidth = 2;
+      gCtx.strokeRect(px-4, py-4, pw+8, ph+8);
+    } else if (isSmall()) {
+      gCtx.shadowColor = '#2ed573'; gCtx.shadowBlur = 12;
+    }
+    gCtx.globalAlpha = ghost ? 0.35 : 1;
+    gCtx.fillRect(px, py, pw, ph);
+    gCtx.shadowBlur = 0; gCtx.shadowColor = 'transparent'; gCtx.globalAlpha = 1;
+
+    // ── HUD ──
+    const fs = Math.max(12, Math.round(GH * 0.023));
+    gCtx.font = `700 ${fs}px Roboto,sans-serif`;
+    gCtx.fillStyle = tx; gCtx.globalAlpha = 0.5;
+    gCtx.textAlign = 'left';  gCtx.fillText(`${gScore.toFixed(1)}s`, 16, fs + 10);
+    gCtx.textAlign = 'right'; gCtx.fillText(`best: ${gBest.toFixed(1)}s`, GW-16, fs+10);
+    gCtx.globalAlpha = 1;
+
+    // active power-up pills in top-center
+    const puActive = [];
+    if (hasSlowActive()) puActive.push({ col:'#ff9f43', label:`slow ${((slowUntil-now)/1000).toFixed(1)}s` });
+    if (hasShield)       puActive.push({ col:'#00d2ff', label:'shield' });
+    if (hasGhost())      puActive.push({ col:'#a55eea', label:`ghost ${((ghostUntil-now)/1000).toFixed(1)}s` });
+    if (isSmall())       puActive.push({ col:'#2ed573', label:`small ${((smallUntil-now)/1000).toFixed(1)}s` });
+    document.getElementById('game-powerup-hud').innerText = puActive.map(p=>p.label).join('  ·  ');
+
+  // ── DEAD SCREEN ──
+  } else if (gState === 'dead') {
+    // faded frozen walls
+    gCtx.fillStyle = tx;
+    gWalls.forEach(w => {
+      gCtx.globalAlpha = .08;
+      gCtx.fillRect(w.x, 0, w.w, w.gapY);
+      gCtx.fillRect(w.x, w.gapY+w.gapH, w.w, GH-(w.gapY+w.gapH));
+    });
+    // particles still fly
+    gParticles.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.vx *= 0.88; p.vy *= 0.88; p.life -= 0.025;
+      gCtx.globalAlpha = Math.max(0, p.life); gCtx.fillStyle = p.col;
+      gCtx.fillRect(p.x - p.sz/2, p.y - p.sz/2, p.sz, p.sz);
+    });
+    gParticles = gParticles.filter(p => p.life > 0);
+    gCtx.globalAlpha = 1;
+
+    const bigF = Math.max(22, Math.round(GH * 0.055));
+    const smF  = Math.max(13, Math.round(GH * 0.027));
+    gCtx.textAlign = 'center'; gCtx.fillStyle = tx;
+    gCtx.globalAlpha = .92; gCtx.font = `900 ${bigF}px Roboto,sans-serif`;
+    gCtx.fillText('you died.', GW/2, GH/2 - bigF * 0.9);
+    gCtx.globalAlpha = .5;  gCtx.font = `700 ${smF}px Roboto,sans-serif`;
+    gCtx.fillText(`${gScore.toFixed(1)}s survived`, GW/2, GH/2 + smF * 0.5);
+    if (gScore >= gBest && gBest > 0) {
+      gCtx.globalAlpha = .85; gCtx.fillStyle = '#ffd700';
+      gCtx.font = `900 ${smF*1.1}px Roboto,sans-serif`;
+      gCtx.fillText('new best!', GW/2, GH/2 + smF * 2.2);
+    }
+    gCtx.globalAlpha = .25; gCtx.fillStyle = tx;
+    gCtx.font = `700 ${smF*0.85}px Roboto,sans-serif`;
+    gCtx.fillText('space to retry', GW/2, GH/2 + smF * 4.2);
+    gCtx.globalAlpha = 1;
   }
-  gRaf=requestAnimationFrame(gameLoop);
+
+  gCtx.restore();
+  gRaf = requestAnimationFrame(gameLoop);
+}
+
+function collectPowerup(p) {
+  p.collected = true;
+  spawnParticles(p.x + p.w/2, p.y + p.h/2, PU_COLORS[p.type], 16, 5);
+  if (p.type === 'slow')   slowUntil  = Date.now() + 6000;
+  if (p.type === 'shield') hasShield  = true;
+  if (p.type === 'ghost')  ghostUntil = Date.now() + 5000;
+  if (p.type === 'small')  smallUntil = Date.now() + 6000;
+}
+
+function killPlayer(px, py, pw, ph) {
+  gState = 'dead';
+  gScreenShake = 1;
+  const tx = getTX();
+  spawnParticles(gPlayer.x, gPlayer.y, tx, 30, 6);
+  if (gScore > gBest) {
+    gBest = gScore;
+    localStorage.setItem('vd-best', gBest.toFixed(2));
+    if (currentUserId) {
+      const name = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'anon';
+      setDoc(doc(db, 'void_scores', currentUserId), { displayName: name, score: parseFloat(gScore.toFixed(2)), updatedAt: serverTimestamp() }).catch(() => {});
+    }
+  }
+  document.getElementById('game-hint').innerText = 'space to retry';
+  document.getElementById('game-powerup-hud').innerText = '';
 }
 
 // ── LEADERBOARD ──
@@ -818,22 +1136,18 @@ onSnapshot(query(collection(db,'void_scores'),orderBy('score','desc'),limit(20))
 
 window.toggleGame=()=>{
   const gp=document.getElementById('game-panel');
-  if(!gp.style.display||gp.style.display==='none'){
-    gp.style.display='block';
+  const open=gp.classList.toggle('gopen');
+  if(open){
+    resizeGame();   // only here, not per frame
     if(!gRaf) gRaf=requestAnimationFrame(gameLoop);
   } else {
-    gp.style.display='none';
     if(gRaf){ cancelAnimationFrame(gRaf); gRaf=null; }
+    gState='idle';
   }
 };
-
-// draggable game panel
-const gamePanel=document.getElementById('game-panel');
-const gameHdr=document.getElementById('game-hdr');
-let gdrag={on:false,ox:0,oy:0};
-gameHdr.onmousedown=e=>{ gdrag.on=true; gdrag.ox=e.clientX-gamePanel.offsetLeft; gdrag.oy=e.clientY-gamePanel.offsetTop; e.preventDefault(); };
-document.addEventListener('mousemove',e=>{ if(!gdrag.on) return; gamePanel.style.left=(e.clientX-gdrag.ox)+'px'; gamePanel.style.top=(e.clientY-gdrag.oy)+'px'; gamePanel.style.bottom='auto'; });
-document.addEventListener('mouseup',()=>{ gdrag.on=false; });
+window.addEventListener('resize',()=>{
+  if(document.getElementById('game-panel').classList.contains('gopen')){ resizeGame(); }
+});
 
 
 // ── LOADING SCREEN ──
@@ -869,25 +1183,21 @@ document.addEventListener('mouseup',()=>{ gdrag.on=false; });
 // ── DELETE COUNTER (owner only) ──
 window.deleteCounter=async(n)=>{
   if(currentUserRole!=='owner') return;
-  if(!confirm(`remove counter ${n}? this deletes its config.`)) return;
-  const key=n===1?'timer':`timer${n}`;
-  await deleteDoc(doc(db,'config',key)).catch(()=>{});
-  // decrement count in meta
-  const newCount=counterCount-1;
-  if(newCount<=0){ await setDoc(doc(db,'config','timers_meta'),{count:1}); }
-  else { await setDoc(doc(db,'config','timers_meta'),{count:newCount}); }
-  // remove from DOM
-  const slide=document.getElementById(`slide-${n}`);
-  const prev=slide?.previousElementSibling;
-  if(prev?.classList.contains('counter-divider')) prev.remove();
-  slide?.remove();
-  const ccBlock=document.getElementById(`cc-${n}`);
-  ccBlock?.remove();
-  renderedCount=Math.max(0,renderedCount-1);
-  adminCount=Math.max(0,adminCount-1);
-  counterCount=Math.max(1,counterCount-1);
-  if(activeIdx>=counterCount) activeIdx=Math.max(0,counterCount-1);
-  updateCarousel();
+  if(!confirm(`remove counter ${n}?`)) return;
+  // Shift every counter above n down by one to avoid gaps
+  for(let i=n; i<counterCount; i++){
+    const fromKey=i+1===1?'timer':`timer${i+1}`;
+    const toKey=i===1?'timer':`timer${i}`;
+    try{
+      const s=await getDoc(doc(db,'config',fromKey));
+      if(s.exists()) await setDoc(doc(db,'config',toKey),s.data());
+    }catch(e){}
+  }
+  // Delete the now-duplicate last slot
+  const lastKey=counterCount===1?'timer':`timer${counterCount}`;
+  await deleteDoc(doc(db,'config',lastKey)).catch(()=>{});
+  const newCount=Math.max(1,counterCount-1);
+  await setDoc(doc(db,'config','timers_meta'),{count:newCount});
   showStatus(`counter ${n} removed.`);
 };
 
