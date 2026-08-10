@@ -730,80 +730,104 @@ const gCtx = gCvs.getContext('2d');
 const gKeys = {};
 let GW = window.innerWidth, GH = 600;
 
-// ── game state ──
-let gState = 'idle';
-let gScore = 0, gBest = parseFloat(localStorage.getItem('vd-best') || '0');
+// state
+let gState = 'idle'; // idle | playing | dying | dead
+let gPoints = 0, gBest = parseFloat(localStorage.getItem('vd-best') || '0');
 let gFrame = 0, gBaseSpd = 0, gSpawnCd = 0, gSpawnRate = 0;
+let gDyingTimer = 0;        // slow-mo death frames
+let gCombo = 0, gComboTimer = 0, gComboDisplay = 0;
+let gPlayerVy = 0;
 let gPlayer = { x: 0, y: 0, w: 14, h: 14 };
-let gWalls = [], gPowerups = [], gParticles = [], gRaf = null;
-let gScreenShake = 0;
+let gTrail = [];             // last N player positions for trail
+let gWalls = [], gPowerups = [], gParticles = [], gFloatTexts = [], gRaf = null;
+let gScreenShake = 0, gFlash = '', gFlashA = 0;
+let lastGapCenter = 0;
+let gGridOffset = 0;         // parallax background grid
 
-// power-up timers
+// power-up state
 let slowUntil = 0, hasShield = false, ghostUntil = 0, smallUntil = 0;
 const PU_TYPES  = ['slow','shield','ghost','small'];
 const PU_COLORS = { slow:'#ff9f43', shield:'#00d2ff', ghost:'#a55eea', small:'#2ed573' };
 const PU_ICONS  = { slow:'S', shield:'◈', ghost:'G', small:'↕' };
 
-// ── helpers ──
-function gSpd()   { return hasSlowActive() ? gBaseSpd * 0.42 : gBaseSpd; }
+// helpers
+function gSpd()          { return hasSlowActive() ? gBaseSpd * 0.42 : gBaseSpd; }
 function hasSlowActive() { return Date.now() < slowUntil; }
 function hasGhost()      { return Date.now() < ghostUntil; }
 function isSmall()       { return Date.now() < smallUntil; }
-function getBG()  { return getComputedStyle(document.body).getPropertyValue('--bg').trim()   || '#1a1a1c'; }
-function getTX()  { return getComputedStyle(document.body).getPropertyValue('--text').trim() || '#e0e0e0'; }
+function getBG()         { return getComputedStyle(document.body).getPropertyValue('--bg').trim()   || '#1a1a1c'; }
+function getTX()         { return getComputedStyle(document.body).getPropertyValue('--text').trim() || '#e0e0e0'; }
 
-// ── resize: called on open & window resize only, NOT per frame ──
 function resizeGame() {
-  const hdr  = document.getElementById('game-hdr');
+  const hdr = document.getElementById('game-hdr');
   const hint = document.getElementById('game-hint');
   GW = window.innerWidth;
   GH = window.innerHeight - (hdr ? hdr.offsetHeight : 44) - (hint ? hint.offsetHeight : 34);
-  gCvs.width  = GW;
-  gCvs.height = GH;
-  // if idle, reposition player preview
+  gCvs.width = GW; gCvs.height = GH;
   if (gState === 'idle') gPlayer = { x: GW * 0.1, y: GH / 2, w: 14, h: 14 };
 }
 
-// ── spawning ──
+// ── spawn helpers ──
 function spawnWall() {
-  const wallW    = Math.round(20 + Math.random() * 18);
-  const progress = Math.min(1, gFrame / 3600);                  // 0→1 over 60s
-  const gapH     = Math.max(GH * 0.16, GH * 0.3 - progress * GH * 0.14);
-  const gapY     = 30 + Math.random() * (GH - gapH - 60);
-  const breakable = Math.random() < 0.42;
+  const progress = Math.min(1, gFrame / 5400);
+  const wallW = Math.round(22 + Math.random() * 14);
+  const gapH  = Math.max(GH * 0.23, GH * 0.38 - progress * GH * 0.15);
+  const maxDelta  = GH * 0.27;
+  const minC = gapH/2 + 28, maxC = GH - gapH/2 - 28;
+  const ideal     = lastGapCenter + (Math.random()-0.5)*2*maxDelta;
+  const gapCenter = Math.max(minC, Math.min(maxC, ideal));
+  lastGapCenter = gapCenter;
+  const gapY = gapCenter - gapH/2;
+
+  // wall type: 0=solid, 1=breakable, 2=moving
+  const r = Math.random();
+  const type = r < 0.38 ? 1 : r < 0.38 + Math.min(0.2, progress*0.22) ? 2 : 0;
   gWalls.push({
-    x: GW + wallW, gapY, gapH, w: wallW,
-    breakable, cracking: false, crackAlpha: 0,
-    broken: false, splitTop: 0, splitBot: 0
+    x: GW + wallW + 10, gapY, gapH, w: wallW, type,
+    cracking: false, crackAlpha: 0, broken: false, splitTop: 0, splitBot: 0,
+    scored: false,
+    // moving wall state
+    vy: type===2 ? (Math.random()<0.5?1:-1)*(1.2+Math.random()*1.4) : 0,
+    moveRange: GH * 0.18,
+    moveOrigin: gapCenter
   });
 }
 
 function spawnPowerup() {
-  const type = PU_TYPES[Math.floor(Math.random() * PU_TYPES.length)];
-  const sz = 26;
-  gPowerups.push({ x: GW + sz, y: 50 + Math.random() * (GH - 100), w: sz, h: sz, type, glow: 0, collected: false });
+  const type = PU_TYPES[Math.floor(Math.random()*PU_TYPES.length)];
+  const sz = 28;
+  const y = Math.max(sz+10, Math.min(GH-sz-10, lastGapCenter + (Math.random()-0.5)*GH*0.22));
+  gPowerups.push({ x: GW+sz+10, y, w: sz, h: sz, type, glow: 0, collected: false });
 }
 
-function spawnParticles(x, y, col, n, spd = 4) {
-  for (let i = 0; i < n; i++) {
-    const a = Math.random() * Math.PI * 2;
-    const s = 1 + Math.random() * spd;
-    gParticles.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s, life: 1, col, sz: 2+Math.random()*3 });
+function spawnParticles(x, y, col, n, spd=4) {
+  for (let i=0; i<n; i++) {
+    const a = Math.random()*Math.PI*2, s = 0.5+Math.random()*spd;
+    gParticles.push({ x, y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:1, col, sz:2+Math.random()*3 });
   }
+}
+
+function floatText(x, y, text, col) {
+  gFloatTexts.push({ x, y, text, col, life:1, vy:-1.8 });
 }
 
 // ── start / reset ──
 function startGame() {
   gState     = 'playing';
-  gScore     = 0; gFrame = 0;
-  gBaseSpd   = GW * 0.0045;   // ~6-7px/frame on 1440px screen — feels fast
-  gSpawnRate = 95;
-  gSpawnCd   = 40;             // short delay before first wall
+  gPoints    = 0; gFrame = 0;
+  gBaseSpd   = GW * 0.003;
+  gSpawnRate = 115; gSpawnCd = 65;
   slowUntil  = 0; hasShield = false; ghostUntil = 0; smallUntil = 0;
-  gPlayer    = { x: GW * 0.1, y: GH / 2, w: 14, h: 14 };
-  gWalls = []; gPowerups = []; gParticles = [];
-  gScreenShake = 0;
-  document.getElementById('game-hint').innerText = 'w / s · avoid walls · break them · grab power-ups';
+  gPlayerVy  = 0;
+  gCombo = 0; gComboTimer = 0; gComboDisplay = 0;
+  lastGapCenter = GH / 2;
+  gPlayer   = { x: GW*0.1, y: GH/2, w:14, h:14 };
+  gTrail    = [];
+  gWalls    = []; gPowerups = []; gParticles = []; gFloatTexts = [];
+  gGridOffset = 0;
+  gScreenShake = 0; gFlash = ''; gFlashA = 0;
+  gDyingTimer = 0;
+  document.getElementById('game-hint').innerText = 'w/s to move  ·  graze breakable walls to split  ·  grab power-ups';
   document.getElementById('game-powerup-hud').innerText = '';
 }
 
@@ -811,301 +835,420 @@ function startGame() {
 function gameLoop() {
   const bg = getBG(), tx = getTX();
 
-  // screen shake offset
-  const shakeX = gScreenShake > 0 ? (Math.random()-0.5)*gScreenShake*8 : 0;
-  const shakeY = gScreenShake > 0 ? (Math.random()-0.5)*gScreenShake*8 : 0;
-  if (gScreenShake > 0) gScreenShake = Math.max(0, gScreenShake - 0.08);
+  // slow-mo factor for dying state
+  const timescale = gState==='dying' ? Math.max(0.05, 1 - gDyingTimer/50) : 1;
+
+  const shakeX = gScreenShake>0 ? (Math.random()-0.5)*gScreenShake*10 : 0;
+  const shakeY = gScreenShake>0 ? (Math.random()-0.5)*gScreenShake*10 : 0;
+  if (gScreenShake>0) gScreenShake = Math.max(0, gScreenShake-0.06);
 
   gCtx.save();
   gCtx.translate(shakeX, shakeY);
   gCtx.fillStyle = bg;
-  gCtx.fillRect(-10, -10, GW+20, GH+20);
+  gCtx.fillRect(-20,-20,GW+40,GH+40);
+
+  // flash overlay
+  if (gFlashA>0) {
+    gCtx.fillStyle = gFlash;
+    gCtx.globalAlpha = Math.min(1, gFlashA)*0.22;
+    gCtx.fillRect(-20,-20,GW+40,GH+40);
+    gFlashA = Math.max(0, gFlashA-0.08);
+    gCtx.globalAlpha = 1;
+  }
 
   const now = Date.now();
-  const pw  = isSmall() ? 8 : 14;
-  const ph  = pw;
+  const pw  = isSmall() ? 8 : 14, ph = pw;
   gPlayer.w = pw; gPlayer.h = ph;
 
-  // ── IDLE SCREEN ──
+  // ── IDLE ──
   if (gState === 'idle') {
-    const bigF = Math.max(20, Math.round(GH * 0.05));
-    const smF  = Math.max(12, Math.round(GH * 0.024));
-    gCtx.textAlign = 'center'; gCtx.fillStyle = tx;
-    gCtx.globalAlpha = .9;
-    gCtx.font = `900 ${bigF}px Roboto,sans-serif`;
-    gCtx.fillText('void.dash', GW/2, GH/2 - GH*0.1);
-    gCtx.globalAlpha = .4;
-    gCtx.font = `700 ${smF}px Roboto,sans-serif`;
-    gCtx.fillText('space to start', GW/2, GH/2 - GH*0.02);
-    gCtx.fillText('w / s to move  ·  graze breakable walls to split them  ·  collect power-ups', GW/2, GH/2 + GH*0.04);
-    // power-up legend
-    const legY = GH/2 + GH*0.13;
-    const legItems = [
-      { col:'#ff9f43', label:'slow' },
-      { col:'#00d2ff', label:'shield' },
-      { col:'#a55eea', label:'ghost' },
-      { col:'#2ed573', label:'small' }
-    ];
-    const spacing = 110;
-    const startX = GW/2 - spacing*1.5;
-    legItems.forEach((it, i) => {
-      gCtx.globalAlpha = .5;
-      gCtx.fillStyle = it.col;
-      gCtx.fillRect(startX + i*spacing - 8, legY-10, 16, 16);
-      gCtx.globalAlpha = .35;
-      gCtx.fillStyle = tx;
-      gCtx.font = `700 ${Math.max(10,Math.round(smF*0.8))}px Roboto,sans-serif`;
-      gCtx.fillText(it.label, startX + i*spacing, legY + 22);
-    });
-    if (gBest > 0) {
-      gCtx.globalAlpha = .2;
-      gCtx.fillStyle = tx;
-      gCtx.font = `700 ${smF}px Roboto,sans-serif`;
-      gCtx.fillText(`best: ${gBest.toFixed(1)}s`, GW/2, GH - 30);
+    drawIdleScreen(tx, pw, ph);
+
+  // ── PLAYING / DYING ──
+  } else if (gState === 'playing' || gState === 'dying') {
+    if (gState === 'dying') {
+      gDyingTimer++;
+      if (gDyingTimer > 90) { gState='dead'; }
     }
-    // idle player square
-    gCtx.globalAlpha = .7; gCtx.fillStyle = tx;
-    gCtx.fillRect(gPlayer.x - pw/2, gPlayer.y - ph/2, pw, ph);
+
+    const sp = gSpd() * timescale;
+    if (gState === 'playing') {
+      gFrame++;
+      gBaseSpd   = GW * Math.min(0.006, 0.003 + gFrame*0.0000018);
+      gSpawnRate = Math.max(68, 115 - gFrame*0.055);
+      gSpawnCd--;
+      if (gSpawnCd<=0) { gSpawnCd=Math.floor(gSpawnRate); spawnWall(); }
+      if (gFrame % 350 === 0) spawnPowerup();
+      gGridOffset += sp;
+      if (gComboTimer>0) gComboTimer--;
+      else gCombo = 0;
+    }
+
+    // ── BACKGROUND GRID (parallax) ──
+    const gridSz = 55;
+    gCtx.strokeStyle = tx; gCtx.lineWidth = 1;
+    gCtx.globalAlpha = 0.045;
+    for (let x = -(gGridOffset%gridSz); x < GW+gridSz; x+=gridSz) {
+      gCtx.beginPath(); gCtx.moveTo(x,0); gCtx.lineTo(x,GH); gCtx.stroke();
+    }
+    for (let y=0; y<GH; y+=gridSz) {
+      gCtx.beginPath(); gCtx.moveTo(0,y); gCtx.lineTo(GW,y); gCtx.stroke();
+    }
     gCtx.globalAlpha = 1;
 
-  // ── PLAYING ──
-  } else if (gState === 'playing') {
-    gFrame++;
-    gScore    = gFrame / 60;
-    gBaseSpd  = GW * (0.0045 + Math.min(gFrame * 0.0000015, 0.004));  // ramps up gently
-    gSpawnRate = Math.max(50, 95 - gFrame * 0.07);
+    // ── PHYSICS (gravity + input) ──
+    const GRAVITY  = GH * 0.00055 * timescale;
+    const THRUST   = GH * 0.0018;
+    const MAX_VY   = GH * 0.018;
+    const DRAG     = 0.88;
 
-    gSpawnCd--;
-    if (gSpawnCd <= 0) { gSpawnCd = Math.floor(gSpawnRate); spawnWall(); }
-    if (gFrame % 300 === 0) spawnPowerup();
-
-    const sp = gSpd();
-    const moveSpd = GH * 0.0075;
-    if (gKeys['w']||gKeys['W']||gKeys['ArrowUp'])   gPlayer.y = Math.max(ph/2+3, gPlayer.y - moveSpd);
-    if (gKeys['s']||gKeys['S']||gKeys['ArrowDown'])  gPlayer.y = Math.min(GH-ph/2-3, gPlayer.y + moveSpd);
+    if (gState==='playing') {
+      if (gKeys['w']||gKeys['W']||gKeys['ArrowUp'])   gPlayerVy -= THRUST;
+      if (gKeys['s']||gKeys['S']||gKeys['ArrowDown'])  gPlayerVy += THRUST;
+      gPlayerVy += GRAVITY;
+      gPlayerVy  = Math.max(-MAX_VY, Math.min(MAX_VY, gPlayerVy * DRAG));
+      gPlayer.y  = Math.max(ph/2+2, Math.min(GH-ph/2-2, gPlayer.y + gPlayerVy*timescale));
+    }
 
     const px = gPlayer.x - pw/2, py = gPlayer.y - ph/2;
     const ghost = hasGhost();
 
+    // ── TRAIL ──
+    gTrail.push({ x:gPlayer.x, y:gPlayer.y, t:1 });
+    if (gTrail.length > 18) gTrail.shift();
+    gTrail.forEach((pt,i) => {
+      const a = (i/gTrail.length)*0.25;
+      const sz2 = pw * (i/gTrail.length) * 0.8;
+      gCtx.globalAlpha = a; gCtx.fillStyle = ghost ? '#a55eea' : tx;
+      gCtx.fillRect(pt.x-sz2/2, pt.y-sz2/2, sz2, sz2);
+    });
+    gCtx.globalAlpha = 1;
+
     // ── WALLS ──
-    let playerDied = false;
+    let playerDied = false, dangerGlow = 0;
+
     for (const w of gWalls) {
-      // move
-      if (!w.broken) w.x -= sp;
-      else { w.splitTop -= 9; w.splitBot += 9; }   // halves fly apart
-
-      // crack detection: player passes THROUGH gap within 8px of edge → crack breakable wall
-      if (w.breakable && !w.broken && !w.cracking) {
-        const overlapX = px + pw > w.x && px < w.x + w.w;
-        const inGapY   = py + ph > w.gapY && py < w.gapY + w.gapH;  // player is inside gap
-        const grazeTop = Math.abs(py - w.gapY) < 9;
-        const grazeBot = Math.abs((py + ph) - (w.gapY + w.gapH)) < 9;
-        if (overlapX && inGapY && (grazeTop || grazeBot)) w.cracking = true;
-      }
-      if (w.cracking && !w.broken) {
-        w.crackAlpha = Math.min(1, w.crackAlpha + 0.14);
-        if (w.crackAlpha >= 1) {
-          w.broken = true;
-          spawnParticles(w.x + w.w/2, w.gapY, tx, 12, 5);
-          spawnParticles(w.x + w.w/2, w.gapY + w.gapH, tx, 12, 5);
-        }
-      }
-
-      // ── DRAW WALL ──
-      gCtx.fillStyle = tx;
-      if (w.broken) {
-        // top half slides up, bottom half slides down
-        const alpha = Math.max(0, 0.7 - Math.abs(w.splitTop) / (GH * 0.6));
-        gCtx.globalAlpha = alpha;
-        gCtx.fillRect(w.x, w.splitTop, w.w, w.gapY);                     // top piece
-        gCtx.fillRect(w.x, w.gapY + w.gapH + w.splitBot, w.w, GH);       // bottom piece (overshoots—fine, clipped)
-      } else if (w.breakable) {
-        // dashed / semi-transparent to signal breakable
-        gCtx.globalAlpha = 0.38 + w.crackAlpha * 0.25;
-        gCtx.fillRect(w.x, 0, w.w, w.gapY);
-        gCtx.fillRect(w.x, w.gapY + w.gapH, w.w, GH - (w.gapY + w.gapH));
-        // gap edge markers
-        gCtx.globalAlpha = 0.55 + w.crackAlpha * 0.3;
-        gCtx.fillRect(w.x, w.gapY - 3, w.w, 3);
-        gCtx.fillRect(w.x, w.gapY + w.gapH, w.w, 3);
-        // crack lines when cracking
-        if (w.crackAlpha > 0) {
-          gCtx.globalAlpha = w.crackAlpha * 0.9;
-          gCtx.strokeStyle = tx; gCtx.lineWidth = 1.5;
-          // top crack
-          gCtx.beginPath(); gCtx.moveTo(w.x+w.w*0.3, w.gapY-2); gCtx.lineTo(w.x+w.w*0.6, w.gapY-12); gCtx.lineTo(w.x+w.w*0.8, w.gapY-6); gCtx.stroke();
-          // bottom crack
-          gCtx.beginPath(); gCtx.moveTo(w.x+w.w*0.7, w.gapY+w.gapH+2); gCtx.lineTo(w.x+w.w*0.3, w.gapY+w.gapH+12); gCtx.lineTo(w.x+w.w*0.5, w.gapY+w.gapH+7); gCtx.stroke();
+      if (!w.broken) {
+        w.x -= sp;
+        // moving walls oscillate
+        if (w.type===2 && gState==='playing') {
+          w.vy += (w.moveOrigin - (w.gapY + w.gapH/2)) * 0.004;
+          w.vy *= 0.95;
+          w.gapY += w.vy * timescale;
+          w.gapY  = Math.max(10, Math.min(GH - w.gapH - 10, w.gapY));
         }
       } else {
-        // solid wall
-        gCtx.globalAlpha = 0.82;
-        gCtx.fillRect(w.x, 0, w.w, w.gapY);
-        gCtx.fillRect(w.x, w.gapY + w.gapH, w.w, GH - (w.gapY + w.gapH));
+        w.splitTop -= 12*timescale; w.splitBot += 12*timescale;
       }
-      gCtx.globalAlpha = 1;
 
-      // ── COLLISION ──
+      // score a wall when player passes it
+      if (!w.scored && !w.broken && w.x+w.w < px) {
+        w.scored = true;
+        gPoints += 10 * Math.max(1, gCombo);
+        floatText(w.x+w.w+10, gPlayer.y-20, `+${10*Math.max(1,gCombo)}`, tx);
+      }
+
+      // danger proximity
       if (!w.broken && !ghost) {
-        const hitTop = px < w.x+w.w && px+pw > w.x && py < w.gapY;
-        const hitBot = px < w.x+w.w && px+pw > w.x && py+ph > w.gapY+w.gapH;
-        if (hitTop || hitBot) {
+        const ahead = w.x > px && w.x < px + GW*0.32;
+        if (ahead) {
+          const d = Math.min(Math.abs(py - w.gapY), Math.abs((py+ph)-(w.gapY+w.gapH)));
+          if (d < 55) dangerGlow = Math.max(dangerGlow, 1-d/55);
+        }
+      }
+
+      // crack detection
+      if (w.type===1 && !w.broken && !w.cracking) {
+        const overX = px+pw > w.x && px < w.x+w.w;
+        const inGapY = py+ph > w.gapY && py < w.gapY+w.gapH;
+        const gTop = py - w.gapY, gBot = (w.gapY+w.gapH) - (py+ph);
+        if (overX && inGapY && Math.min(Math.abs(gTop),Math.abs(gBot)) < 11) w.cracking = true;
+      }
+      if (w.cracking && !w.broken) {
+        w.crackAlpha = Math.min(1, w.crackAlpha + 0.15*timescale);
+        if (w.crackAlpha>=1) {
+          w.broken = true;
+          if (!w.scored) { w.scored=true; gPoints+=30*Math.max(1,gCombo); floatText(w.x+w.w/2,w.gapY-15,`+${30*Math.max(1,gCombo)} BREAK!`,'#fff'); }
+          gCombo++; gComboTimer=110;
+          gComboDisplay=gCombo;
+          spawnParticles(w.x+w.w/2, w.gapY,        tx, 12, 5);
+          spawnParticles(w.x+w.w/2, w.gapY+w.gapH, tx, 12, 5);
+        }
+      }
+
+      // draw wall
+      drawWall(w, tx, timescale);
+
+      // collision
+      if (!w.broken && !ghost && gState==='playing') {
+        const inX = px < w.x+w.w && px+pw > w.x;
+        if (inX && (py < w.gapY || py+ph > w.gapY+w.gapH)) {
           if (hasShield) {
-            hasShield = false;
-            w.broken = true; w.cracking = false;
-            gScreenShake = 0.6;
-            spawnParticles(w.x+w.w/2, hitTop?w.gapY/2:(w.gapY+w.gapH+(GH-(w.gapY+w.gapH))/2), '#00d2ff', 24, 6);
-          } else {
-            playerDied = true; break;
-          }
+            hasShield=false; w.broken=true; gScreenShake=0.7;
+            gFlash='#00d2ff'; gFlashA=1;
+            spawnParticles(w.x+w.w/2, w.gapY+w.gapH/2, '#00d2ff', 28, 7);
+          } else { playerDied=true; break; }
         }
       }
     }
-    gWalls = gWalls.filter(w => w.x + w.w > -80 && w.splitTop > -(GH*1.5));
+    gWalls = gWalls.filter(w => w.x+w.w > -120 && (!w.broken || w.splitTop > -GH*1.3));
 
-    if (playerDied) { killPlayer(px, py, pw, ph); }
+    if (playerDied) killPlayer();
+
+    // danger red vignette
+    if (dangerGlow>0 && gState==='playing') {
+      const grad = gCtx.createRadialGradient(gPlayer.x,gPlayer.y,20,gPlayer.x,gPlayer.y,GH*0.6);
+      grad.addColorStop(0,'transparent');
+      grad.addColorStop(1,`rgba(255,71,87,${dangerGlow*0.18})`);
+      gCtx.fillStyle=grad; gCtx.globalAlpha=1; gCtx.fillRect(0,0,GW,GH);
+    }
 
     // ── POWER-UPS ──
     gPowerups.forEach(p => {
       if (p.collected) return;
-      p.x -= sp * 0.65;
-      p.glow = (p.glow + 0.07) % (Math.PI * 2);
-      const pulse = 0.5 + Math.sin(p.glow) * 0.35;
-
-      // outer glow
+      p.x -= sp*0.65;
+      p.glow = (p.glow+0.07) % (Math.PI*2);
+      const pulse = 0.5+Math.sin(p.glow)*0.35;
       gCtx.fillStyle = PU_COLORS[p.type];
-      gCtx.globalAlpha = pulse * 0.35;
-      gCtx.beginPath();
-      gCtx.arc(p.x + p.w/2, p.y + p.h/2, p.w * 1.1, 0, Math.PI*2);
-      gCtx.fill();
-
-      // box
-      gCtx.globalAlpha = 0.85;
-      gCtx.fillRect(p.x, p.y, p.w, p.h);
-
-      // icon
-      gCtx.globalAlpha = 1;
-      gCtx.fillStyle = '#000';
-      gCtx.font = `900 ${Math.round(p.w*0.52)}px Roboto,sans-serif`;
-      gCtx.textAlign = 'center';
-      gCtx.fillText(PU_ICONS[p.type], p.x + p.w/2, p.y + p.h*0.72);
-
-      // collect
-      if (!playerDied && px < p.x+p.w && px+pw > p.x && py < p.y+p.h && py+ph > p.y) {
-        collectPowerup(p);
-      }
+      gCtx.globalAlpha = pulse*0.28;
+      gCtx.beginPath(); gCtx.arc(p.x+p.w/2,p.y+p.h/2,p.w*1.25,0,Math.PI*2); gCtx.fill();
+      gCtx.globalAlpha = 0.9; gCtx.fillRect(p.x,p.y,p.w,p.h);
+      gCtx.globalAlpha = 1; gCtx.fillStyle='#000';
+      gCtx.font=`900 ${Math.round(p.w*0.5)}px Roboto,sans-serif`;
+      gCtx.textAlign='center';
+      gCtx.fillText(PU_ICONS[p.type],p.x+p.w/2,p.y+p.h*0.73);
+      if (!playerDied && px<p.x+p.w && px+pw>p.x && py<p.y+p.h && py+ph>p.y) collectPowerup(p, gPlayer.x, gPlayer.y);
     });
-    gCtx.globalAlpha = 1;
-    gPowerups = gPowerups.filter(p => p.x + p.w > -20 && !p.collected);
+    gCtx.globalAlpha=1;
+    gPowerups = gPowerups.filter(p => p.x+p.w > -20 && !p.collected);
 
     // ── PARTICLES ──
     gParticles.forEach(p => {
-      p.x  += p.vx; p.y += p.vy;
-      p.vx *= 0.91; p.vy *= 0.91;
-      p.life -= 0.032;
-      gCtx.globalAlpha = Math.max(0, p.life);
-      gCtx.fillStyle = p.col;
-      gCtx.fillRect(p.x - p.sz/2, p.y - p.sz/2, p.sz, p.sz);
+      p.x+=p.vx*timescale; p.y+=p.vy*timescale; p.vx*=0.91; p.vy*=0.91; p.life-=0.028*timescale;
+      gCtx.globalAlpha=Math.max(0,p.life); gCtx.fillStyle=p.col;
+      gCtx.fillRect(p.x-p.sz/2,p.y-p.sz/2,p.sz,p.sz);
     });
-    gCtx.globalAlpha = 1;
-    gParticles = gParticles.filter(p => p.life > 0);
+    gCtx.globalAlpha=1;
+    gParticles = gParticles.filter(p=>p.life>0);
+
+    // ── FLOAT TEXTS ──
+    gFloatTexts.forEach(ft => {
+      ft.y+=ft.vy; ft.life-=0.025;
+      gCtx.globalAlpha=Math.max(0,ft.life);
+      gCtx.fillStyle=ft.col||tx;
+      gCtx.font=`900 ${Math.max(11,Math.round(GH*0.022))}px Roboto,sans-serif`;
+      gCtx.textAlign='left';
+      gCtx.fillText(ft.text,ft.x,ft.y);
+    });
+    gCtx.globalAlpha=1;
+    gFloatTexts=gFloatTexts.filter(ft=>ft.life>0);
 
     // ── PLAYER ──
     gCtx.fillStyle = tx;
     if (ghost) {
-      gCtx.globalAlpha = 0.35;
-      gCtx.shadowColor = '#a55eea'; gCtx.shadowBlur = 20;
+      gCtx.globalAlpha=0.28; gCtx.shadowColor='#a55eea'; gCtx.shadowBlur=24;
     } else if (hasShield) {
-      gCtx.shadowColor = '#00d2ff'; gCtx.shadowBlur = 18;
-      gCtx.strokeStyle = '#00d2ff'; gCtx.lineWidth = 2;
-      gCtx.strokeRect(px-4, py-4, pw+8, ph+8);
+      const pulse2=0.7+0.3*Math.sin(now*0.01);
+      gCtx.shadowColor='#00d2ff'; gCtx.shadowBlur=22;
+      gCtx.strokeStyle='#00d2ff'; gCtx.lineWidth=2; gCtx.globalAlpha=pulse2;
+      gCtx.strokeRect(px-5,py-5,pw+10,ph+10);
     } else if (isSmall()) {
-      gCtx.shadowColor = '#2ed573'; gCtx.shadowBlur = 12;
+      gCtx.shadowColor='#2ed573'; gCtx.shadowBlur=16;
+    } else if (dangerGlow>0 && gState==='playing') {
+      gCtx.shadowColor='#ff4757'; gCtx.shadowBlur=dangerGlow*22;
     }
-    gCtx.globalAlpha = ghost ? 0.35 : 1;
-    gCtx.fillRect(px, py, pw, ph);
-    gCtx.shadowBlur = 0; gCtx.shadowColor = 'transparent'; gCtx.globalAlpha = 1;
+    gCtx.globalAlpha=ghost?0.28:1;
+    gCtx.fillRect(px,py,pw,ph);
+    gCtx.shadowBlur=0; gCtx.shadowColor='transparent'; gCtx.globalAlpha=1;
 
     // ── HUD ──
-    const fs = Math.max(12, Math.round(GH * 0.023));
-    gCtx.font = `700 ${fs}px Roboto,sans-serif`;
-    gCtx.fillStyle = tx; gCtx.globalAlpha = 0.5;
-    gCtx.textAlign = 'left';  gCtx.fillText(`${gScore.toFixed(1)}s`, 16, fs + 10);
-    gCtx.textAlign = 'right'; gCtx.fillText(`best: ${gBest.toFixed(1)}s`, GW-16, fs+10);
-    gCtx.globalAlpha = 1;
+    drawHUD(tx, now);
 
-    // active power-up pills in top-center
-    const puActive = [];
-    if (hasSlowActive()) puActive.push({ col:'#ff9f43', label:`slow ${((slowUntil-now)/1000).toFixed(1)}s` });
-    if (hasShield)       puActive.push({ col:'#00d2ff', label:'shield' });
-    if (hasGhost())      puActive.push({ col:'#a55eea', label:`ghost ${((ghostUntil-now)/1000).toFixed(1)}s` });
-    if (isSmall())       puActive.push({ col:'#2ed573', label:`small ${((smallUntil-now)/1000).toFixed(1)}s` });
-    document.getElementById('game-powerup-hud').innerText = puActive.map(p=>p.label).join('  ·  ');
-
-  // ── DEAD SCREEN ──
-  } else if (gState === 'dead') {
-    // faded frozen walls
-    gCtx.fillStyle = tx;
-    gWalls.forEach(w => {
-      gCtx.globalAlpha = .08;
-      gCtx.fillRect(w.x, 0, w.w, w.gapY);
-      gCtx.fillRect(w.x, w.gapY+w.gapH, w.w, GH-(w.gapY+w.gapH));
-    });
-    // particles still fly
-    gParticles.forEach(p => {
-      p.x += p.vx; p.y += p.vy; p.vx *= 0.88; p.vy *= 0.88; p.life -= 0.025;
-      gCtx.globalAlpha = Math.max(0, p.life); gCtx.fillStyle = p.col;
-      gCtx.fillRect(p.x - p.sz/2, p.y - p.sz/2, p.sz, p.sz);
-    });
-    gParticles = gParticles.filter(p => p.life > 0);
-    gCtx.globalAlpha = 1;
-
-    const bigF = Math.max(22, Math.round(GH * 0.055));
-    const smF  = Math.max(13, Math.round(GH * 0.027));
-    gCtx.textAlign = 'center'; gCtx.fillStyle = tx;
-    gCtx.globalAlpha = .92; gCtx.font = `900 ${bigF}px Roboto,sans-serif`;
-    gCtx.fillText('you died.', GW/2, GH/2 - bigF * 0.9);
-    gCtx.globalAlpha = .5;  gCtx.font = `700 ${smF}px Roboto,sans-serif`;
-    gCtx.fillText(`${gScore.toFixed(1)}s survived`, GW/2, GH/2 + smF * 0.5);
-    if (gScore >= gBest && gBest > 0) {
-      gCtx.globalAlpha = .85; gCtx.fillStyle = '#ffd700';
-      gCtx.font = `900 ${smF*1.1}px Roboto,sans-serif`;
-      gCtx.fillText('new best!', GW/2, GH/2 + smF * 2.2);
+    // ── DYING OVERLAY ──
+    if (gState==='dying') {
+      const t = gDyingTimer/90;
+      gCtx.fillStyle=bg; gCtx.globalAlpha=t*0.7; gCtx.fillRect(0,0,GW,GH); gCtx.globalAlpha=1;
     }
-    gCtx.globalAlpha = .25; gCtx.fillStyle = tx;
-    gCtx.font = `700 ${smF*0.85}px Roboto,sans-serif`;
-    gCtx.fillText('space to retry', GW/2, GH/2 + smF * 4.2);
-    gCtx.globalAlpha = 1;
+
+  // ── DEAD ──
+  } else if (gState==='dead') {
+    // particles still animate
+    gParticles.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy; p.vx*=0.87; p.vy*=0.87; p.life-=0.018;
+      gCtx.globalAlpha=Math.max(0,p.life); gCtx.fillStyle=p.col;
+      gCtx.fillRect(p.x-p.sz/2,p.y-p.sz/2,p.sz,p.sz);
+    });
+    gParticles=gParticles.filter(p=>p.life>0);
+    gCtx.globalAlpha=1;
+    drawDeadScreen(tx);
   }
 
   gCtx.restore();
   gRaf = requestAnimationFrame(gameLoop);
 }
 
-function collectPowerup(p) {
-  p.collected = true;
-  spawnParticles(p.x + p.w/2, p.y + p.h/2, PU_COLORS[p.type], 16, 5);
-  if (p.type === 'slow')   slowUntil  = Date.now() + 6000;
-  if (p.type === 'shield') hasShield  = true;
-  if (p.type === 'ghost')  ghostUntil = Date.now() + 5000;
-  if (p.type === 'small')  smallUntil = Date.now() + 6000;
+// ── draw helpers ──
+function drawWall(w, tx, timescale) {
+  gCtx.fillStyle = tx;
+  if (w.broken) {
+    const alpha = Math.max(0, 0.65 - Math.abs(w.splitTop)/(GH*0.5));
+    gCtx.globalAlpha = alpha;
+    gCtx.fillRect(w.x, w.splitTop,             w.w, w.gapY);
+    gCtx.fillRect(w.x, w.gapY+w.gapH+w.splitBot, w.w, GH);
+  } else if (w.type===1) {
+    // breakable — dimmer, gap edge accents
+    gCtx.globalAlpha = 0.38 + w.crackAlpha*0.22;
+    gCtx.fillRect(w.x,0,w.w,w.gapY);
+    gCtx.fillRect(w.x,w.gapY+w.gapH,w.w,GH-(w.gapY+w.gapH));
+    gCtx.globalAlpha = 0.65+w.crackAlpha*0.3;
+    gCtx.fillRect(w.x,w.gapY-2,w.w,2);
+    gCtx.fillRect(w.x,w.gapY+w.gapH,w.w,2);
+    if (w.crackAlpha>0) {
+      gCtx.globalAlpha=w.crackAlpha*0.9; gCtx.strokeStyle=tx; gCtx.lineWidth=1.5;
+      gCtx.beginPath(); gCtx.moveTo(w.x+w.w*0.3,w.gapY-1); gCtx.lineTo(w.x+w.w*0.65,w.gapY-13); gCtx.lineTo(w.x+w.w*0.85,w.gapY-6); gCtx.stroke();
+      gCtx.beginPath(); gCtx.moveTo(w.x+w.w*0.7,w.gapY+w.gapH+1); gCtx.lineTo(w.x+w.w*0.3,w.gapY+w.gapH+13); gCtx.lineTo(w.x+w.w*0.5,w.gapY+w.gapH+7); gCtx.stroke();
+    }
+  } else if (w.type===2) {
+    // moving wall — slightly different shade + arrows indicating movement
+    gCtx.globalAlpha = 0.78;
+    gCtx.fillRect(w.x,0,w.w,w.gapY);
+    gCtx.fillRect(w.x,w.gapY+w.gapH,w.w,GH-(w.gapY+w.gapH));
+    // direction arrows inside wall body
+    const arrowY = w.vy > 0 ? w.gapY+w.gapH+10 : w.gapY-12;
+    const arrowDir = w.vy > 0 ? '▼' : '▲';
+    gCtx.globalAlpha=0.4; gCtx.fillStyle=tx;
+    gCtx.font=`${Math.round(w.w*0.65)}px sans-serif`; gCtx.textAlign='center';
+    gCtx.fillText(arrowDir, w.x+w.w/2, arrowY+10);
+  } else {
+    // solid
+    gCtx.globalAlpha=0.85;
+    gCtx.fillRect(w.x,0,w.w,w.gapY);
+    gCtx.fillRect(w.x,w.gapY+w.gapH,w.w,GH-(w.gapY+w.gapH));
+  }
+  gCtx.globalAlpha=1;
 }
 
-function killPlayer(px, py, pw, ph) {
-  gState = 'dead';
-  gScreenShake = 1;
-  const tx = getTX();
-  spawnParticles(gPlayer.x, gPlayer.y, tx, 30, 6);
-  if (gScore > gBest) {
-    gBest = gScore;
-    localStorage.setItem('vd-best', gBest.toFixed(2));
+function drawHUD(tx, now) {
+  const fs = Math.max(13, Math.round(GH*0.024));
+  gCtx.font=`700 ${fs}px Roboto,sans-serif`;
+  gCtx.fillStyle=tx; gCtx.globalAlpha=0.5;
+  gCtx.textAlign='left';  gCtx.fillText(`${gPoints}`, 18, fs+12);
+  gCtx.textAlign='right'; gCtx.fillText(`best  ${gBest}`, GW-18, fs+12);
+
+  // speed tier dots
+  const tier = Math.min(5, Math.floor(gFrame/900));
+  if (tier>0) {
+    gCtx.globalAlpha=0.22; gCtx.textAlign='center';
+    gCtx.fillText('▲'.repeat(tier), GW/2, fs+12);
+  }
+
+  // combo
+  if (gCombo>1) {
+    const cf = Math.max(14, Math.round(GH*0.032));
+    gCtx.font=`900 ${cf}px Roboto,sans-serif`;
+    gCtx.globalAlpha=0.9; gCtx.fillStyle='#ffd700';
+    gCtx.textAlign='left';
+    gCtx.fillText(`x${gCombo} combo`, 18, fs+12+cf+6);
+  }
+  gCtx.globalAlpha=1;
+
+  // powerup hud
+  const puActive=[];
+  if (hasSlowActive()) puActive.push(`slow ${((slowUntil-now)/1000).toFixed(1)}s`);
+  if (hasShield)       puActive.push('shield');
+  if (hasGhost())      puActive.push(`ghost ${((ghostUntil-now)/1000).toFixed(1)}s`);
+  if (isSmall())       puActive.push(`small ${((smallUntil-now)/1000).toFixed(1)}s`);
+  document.getElementById('game-powerup-hud').innerText=puActive.join('  ·  ');
+}
+
+function drawIdleScreen(tx, pw, ph) {
+  const bigF = Math.max(24, Math.round(GH*0.054));
+  const smF  = Math.max(13, Math.round(GH*0.026));
+  gCtx.textAlign='center'; gCtx.fillStyle=tx;
+  gCtx.globalAlpha=.88; gCtx.font=`900 ${bigF}px Roboto,sans-serif`;
+  gCtx.fillText('void.dash', GW/2, GH*0.36);
+  gCtx.globalAlpha=.45; gCtx.font=`700 ${smF}px Roboto,sans-serif`;
+  gCtx.fillText('space to start', GW/2, GH*0.36+bigF*1.4);
+  gCtx.globalAlpha=.26; gCtx.font=`700 ${Math.round(smF*0.84)}px Roboto,sans-serif`;
+  gCtx.fillText('w / s  ·  gravity pulls you down  ·  graze breakable walls  ·  collect power-ups', GW/2, GH*0.36+bigF*2.4);
+
+  // legend
+  const legItems=[
+    {col:'#ff9f43',icon:'S',label:'slow'},
+    {col:'#00d2ff',icon:'◈',label:'shield'},
+    {col:'#a55eea',icon:'G',label:'ghost'},
+    {col:'#2ed573',icon:'↕',label:'shrink'}
+  ];
+  const bsz=26, gap=90, totalW=(bsz+gap)*legItems.length-gap;
+  const legX=GW/2-totalW/2, legY=GH*0.57;
+  legItems.forEach((it,i)=>{
+    const bx=legX+i*(bsz+gap);
+    gCtx.globalAlpha=.55; gCtx.fillStyle=it.col;
+    gCtx.fillRect(bx,legY,bsz,bsz);
+    gCtx.globalAlpha=1; gCtx.fillStyle='#000';
+    gCtx.font=`900 ${Math.round(bsz*0.5)}px Roboto,sans-serif`;
+    gCtx.textAlign='center'; gCtx.fillText(it.icon,bx+bsz/2,legY+bsz*0.74);
+    gCtx.globalAlpha=.28; gCtx.fillStyle=tx;
+    gCtx.font=`700 ${Math.max(10,Math.round(smF*0.78))}px Roboto,sans-serif`;
+    gCtx.fillText(it.label,bx+bsz/2,legY+bsz+15);
+  });
+
+  if (gBest>0) {
+    gCtx.globalAlpha=.18; gCtx.fillStyle=tx; gCtx.textAlign='center';
+    gCtx.font=`700 ${smF}px Roboto,sans-serif`;
+    gCtx.fillText(`best: ${gBest}`, GW/2, GH-28);
+  }
+  // pulsing idle player
+  const pulse=0.55+Math.sin(Date.now()*0.003)*0.3;
+  gCtx.globalAlpha=pulse; gCtx.fillStyle=tx;
+  gCtx.fillRect(GW*0.1-pw/2, GH/2-ph/2, pw, ph);
+  gCtx.globalAlpha=1;
+}
+
+function drawDeadScreen(tx) {
+  const bigF=Math.max(26,Math.round(GH*0.058));
+  const smF=Math.max(14,Math.round(GH*0.028));
+  gCtx.textAlign='center'; gCtx.fillStyle=tx;
+  gCtx.globalAlpha=.92; gCtx.font=`900 ${bigF}px Roboto,sans-serif`;
+  gCtx.fillText('you died.', GW/2, GH/2-bigF);
+  gCtx.globalAlpha=.55; gCtx.font=`700 ${smF}px Roboto,sans-serif`;
+  gCtx.fillText(`${gPoints} points`, GW/2, GH/2+smF*0.3);
+  if (gPoints>=gBest && gBest>0) {
+    gCtx.globalAlpha=.9; gCtx.fillStyle='#ffd700';
+    gCtx.font=`900 ${Math.round(smF*1.1)}px Roboto,sans-serif`;
+    gCtx.fillText('new best!', GW/2, GH/2+smF*2.0);
+  }
+  gCtx.globalAlpha=.2; gCtx.fillStyle=tx;
+  gCtx.font=`700 ${Math.round(smF*0.84)}px Roboto,sans-serif`;
+  gCtx.fillText('space to retry', GW/2, GH/2+smF*4.0);
+  gCtx.globalAlpha=1;
+}
+
+// ── collect / kill ──
+function collectPowerup(p, px, py) {
+  p.collected=true;
+  spawnParticles(p.x+p.w/2,p.y+p.h/2,PU_COLORS[p.type],20,5);
+  floatText(p.x+p.w+6, p.y, '+15', PU_COLORS[p.type]);
+  gPoints+=15;
+  if (p.type==='slow')   slowUntil=Date.now()+6000;
+  if (p.type==='shield') hasShield=true;
+  if (p.type==='ghost')  ghostUntil=Date.now()+5000;
+  if (p.type==='small')  smallUntil=Date.now()+6000;
+}
+
+function killPlayer() {
+  gState='dying'; gDyingTimer=0;
+  gScreenShake=1.4; gFlash='#ff4757'; gFlashA=2;
+  spawnParticles(gPlayer.x,gPlayer.y,getTX(),40,8);
+  if (gPoints>gBest) {
+    gBest=gPoints; localStorage.setItem('vd-best',gBest);
     if (currentUserId) {
-      const name = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'anon';
-      setDoc(doc(db, 'void_scores', currentUserId), { displayName: name, score: parseFloat(gScore.toFixed(2)), updatedAt: serverTimestamp() }).catch(() => {});
+      const name=auth.currentUser?.displayName||auth.currentUser?.email?.split('@')[0]||'anon';
+      setDoc(doc(db,'void_scores',currentUserId),{displayName:name,score:gPoints,updatedAt:serverTimestamp()}).catch(()=>{});
     }
   }
-  document.getElementById('game-hint').innerText = 'space to retry';
-  document.getElementById('game-powerup-hud').innerText = '';
+  document.getElementById('game-hint').innerText='space to retry';
+  document.getElementById('game-powerup-hud').innerText='';
 }
 
 // ── LEADERBOARD ──
