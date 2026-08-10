@@ -396,18 +396,24 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){ if(document.getElementById('game-panel').classList.contains('gopen')) window.toggleGame(); return; }
   if(e.key===' ' && document.getElementById('game-panel').classList.contains('gopen')){
     e.preventDefault();
-    if(gState==='idle'||gState==='dead') startGame();
+    if(gState==='idle'||gState==='dead'||gState==='dying') startGame();
   }
   gKeys[e.key]=true;
 });
 document.addEventListener('keyup',e=>{ delete gKeys[e.key]; });
 
-// touch swipe
-let touchX=0;
-document.addEventListener('touchstart',e=>{ touchX=e.touches[0].clientX; },{passive:true});
+let touchX=0,touchY=0;
+document.addEventListener('touchstart',e=>{
+  touchX=e.touches[0].clientX; touchY=e.touches[0].clientY;
+  if(document.getElementById('game-panel').classList.contains('gopen')){
+    if(gState==='idle'||gState==='dead'||gState==='dying'){startGame();return;}
+    if(gState==='playing'){gKeys['w']=true;setTimeout(()=>{delete gKeys['w'];},130);}
+  }
+},{passive:true});
 document.addEventListener('touchend',e=>{
-  const dx=e.changedTouches[0].clientX-touchX;
-  if(Math.abs(dx)>50) window.shiftCarousel(dx<0?1:-1);
+  if(document.getElementById('game-panel').classList.contains('gopen')) return;
+  const dx=e.changedTouches[0].clientX-touchX,dy=e.changedTouches[0].clientY-touchY;
+  if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)) window.shiftCarousel(dx<0?1:-1);
 });
 
 window.addEventListener('resize', updateCarousel);
@@ -826,7 +832,7 @@ function startGame() {
   gWalls    = []; gPowerups = []; gParticles = []; gFloatTexts = [];
   gGridOffset = 0;
   gScreenShake = 0; gFlash = ''; gFlashA = 0;
-  gDyingTimer = 0;
+  gDyingTimer = 0; gLastMilestone = 0;
   document.getElementById('game-hint').innerText = 'w/s to move  ·  graze breakable walls to split  ·  grab power-ups';
   document.getElementById('game-powerup-hud').innerText = '';
 }
@@ -914,16 +920,18 @@ function gameLoop() {
     const ghost = hasGhost();
 
     // ── TRAIL ──
-    gTrail.push({ x:gPlayer.x, y:gPlayer.y, t:1 });
+    const trailCol=ghost?'#a55eea':hasShield?'#00d2ff':isSmall()?'#2ed573':tx;
+    gTrail.push({ x:gPlayer.x, y:gPlayer.y, t:1, col:trailCol });
     if (gTrail.length > 18) gTrail.shift();
     gTrail.forEach((pt,i) => {
       const a = (i/gTrail.length)*0.25;
       const sz2 = pw * (i/gTrail.length) * 0.8;
-      gCtx.globalAlpha = a; gCtx.fillStyle = ghost ? '#a55eea' : tx;
+      gCtx.globalAlpha = a; gCtx.fillStyle = pt.col||tx;
       gCtx.fillRect(pt.x-sz2/2, pt.y-sz2/2, sz2, sz2);
     });
     gCtx.globalAlpha = 1;
 
+    gWalls.filter(w=>!w.broken&&w.x>GW-55&&w.x<GW+80).forEach(w=>{gCtx.fillStyle=tx;gCtx.globalAlpha=0.05;gCtx.fillRect(GW-2,0,4,w.gapY);gCtx.fillRect(GW-2,w.gapY+w.gapH,4,GH-(w.gapY+w.gapH));gCtx.globalAlpha=1;});
     // ── WALLS ──
     let playerDied = false, dangerGlow = 0;
 
@@ -943,9 +951,11 @@ function gameLoop() {
 
       // score a wall when player passes it
       if (!w.scored && !w.broken && w.x+w.w < px) {
-        w.scored = true;
-        gPoints += 10 * Math.max(1, gCombo);
-        floatText(w.x+w.w+10, gPlayer.y-20, `+${10*Math.max(1,gCombo)}`, tx);
+        w.scored=true;
+        const base=10*Math.max(1,gCombo);
+        const perfect=Math.abs(gPlayer.y-(w.gapY+w.gapH/2))<w.gapH*0.12;
+        const pts=perfect?base+5:base; gPoints+=pts;
+        floatText(w.x+w.w+10,gPlayer.y-20,perfect?`+${pts} ✦`:`+${pts}`,perfect?'#ffd700':tx);
       }
 
       // danger proximity
@@ -958,7 +968,7 @@ function gameLoop() {
       }
 
       // crack detection
-      if (w.type===1 && !w.broken && !w.cracking) {
+      if ((w.type===1||(w.type===2&&gPoints>300)) && !w.broken && !w.cracking) {
         const overX = px+pw > w.x && px < w.x+w.w;
         const inGapY = py+ph > w.gapY && py < w.gapY+w.gapH;
         const gTop = py - w.gapY, gBot = (w.gapY+w.gapH) - (py+ph);
@@ -1062,6 +1072,8 @@ function gameLoop() {
     gCtx.shadowBlur=0; gCtx.shadowColor='transparent'; gCtx.globalAlpha=1;
 
     // ── HUD ──
+    drawGapIndicator(tx);
+    checkMilestones();
     drawHUD(tx, now);
 
     // ── DYING OVERLAY ──
@@ -1128,11 +1140,30 @@ function drawWall(w, tx, timescale) {
   gCtx.globalAlpha=1;
 }
 
+function drawGapIndicator(tx) {
+  const ahead=gWalls.filter(w=>!w.broken&&w.x>gPlayer.x).sort((a,b)=>a.x-b.x)[0];
+  if(!ahead) return;
+  const dist=ahead.x-gPlayer.x; if(dist>GW*0.65) return;
+  const gapCY=ahead.gapY+ahead.gapH/2, fade=dist/(GW*0.65);
+  gCtx.setLineDash([4,9]); gCtx.strokeStyle=tx; gCtx.lineWidth=1;
+  gCtx.globalAlpha=(1-fade)*0.16;
+  gCtx.beginPath(); gCtx.moveTo(gPlayer.x+10,gPlayer.y); gCtx.lineTo(ahead.x-4,gapCY); gCtx.stroke();
+  gCtx.setLineDash([]);
+  gCtx.globalAlpha=(1-fade)*0.26; gCtx.fillStyle=tx;
+  gCtx.beginPath(); gCtx.moveTo(ahead.x-2,gapCY); gCtx.lineTo(ahead.x-10,gapCY-5); gCtx.lineTo(ahead.x-10,gapCY+5); gCtx.closePath(); gCtx.fill();
+  gCtx.globalAlpha=1;
+}
+let gLastMilestone=0;
+function checkMilestones(){
+  for(const m of [100,250,500,1000,2000,5000]){
+    if(gPoints>=m&&gLastMilestone<m){gLastMilestone=m;gFlash='#ffd700';gFlashA=1.2;floatText(GW/2-50,GH/2-50,m+' pts!','#ffd700');}
+  }
+}
 function drawHUD(tx, now) {
   const fs = Math.max(13, Math.round(GH*0.024));
   gCtx.font=`700 ${fs}px Roboto,sans-serif`;
   gCtx.fillStyle=tx; gCtx.globalAlpha=0.5;
-  gCtx.textAlign='left';  gCtx.fillText(`${gPoints}`, 18, fs+12);
+  gCtx.textAlign='left';  gCtx.fillText(`${gPoints} pts`, 18, fs+12);
   gCtx.textAlign='right'; gCtx.fillText(`best  ${gBest}`, GW-18, fs+12);
 
   // speed tier dots
@@ -1196,7 +1227,7 @@ function drawIdleScreen(tx, pw, ph) {
   if (gBest>0) {
     gCtx.globalAlpha=.18; gCtx.fillStyle=tx; gCtx.textAlign='center';
     gCtx.font=`700 ${smF}px Roboto,sans-serif`;
-    gCtx.fillText(`best: ${gBest}`, GW/2, GH-28);
+    gCtx.fillText(`best: ${gBest} pts`, GW/2, GH-28);
   }
   // pulsing idle player
   const pulse=0.55+Math.sin(Date.now()*0.003)*0.3;
@@ -1212,7 +1243,8 @@ function drawDeadScreen(tx) {
   gCtx.globalAlpha=.92; gCtx.font=`900 ${bigF}px Roboto,sans-serif`;
   gCtx.fillText('you died.', GW/2, GH/2-bigF);
   gCtx.globalAlpha=.55; gCtx.font=`700 ${smF}px Roboto,sans-serif`;
-  gCtx.fillText(`${gPoints} points`, GW/2, GH/2+smF*0.3);
+  gCtx.fillText(`${gPoints} pts`, GW/2, GH/2+smF*0.3);
+  gCtx.globalAlpha=.22; gCtx.fillText(`best: ${gBest} pts`, GW/2, GH/2+smF*1.6);
   if (gPoints>=gBest && gBest>0) {
     gCtx.globalAlpha=.9; gCtx.fillStyle='#ffd700';
     gCtx.font=`900 ${Math.round(smF*1.1)}px Roboto,sans-serif`;
@@ -1272,7 +1304,7 @@ onSnapshot(query(collection(db,'void_scores'),orderBy('score','desc'),limit(20))
     row.innerHTML=`
       <div class="lb-rank ${rankClass}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
       <div class="lb-name ${isYou?'lb-you':''}">${(d.displayName||'anon').toLowerCase()}${isYou?' (you)':''}</div>
-      <div class="lb-score">${parseFloat(d.score).toFixed(1)}s</div>`;
+      <div class="lb-score">${d.score>50?Math.round(d.score)+" pts":parseFloat(d.score).toFixed(1)+"s"}</div>`;
     list.appendChild(row);
   });
 });
