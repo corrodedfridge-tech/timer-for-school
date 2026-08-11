@@ -153,6 +153,23 @@ body.panic-24 { animation: panicFlash 1.2s ease-in-out infinite; }
 body.panic-12 { background-color: #1a0000 !important; animation: none; }
 body.panic-12 .number { color: #ff4757 !important; text-shadow: 0 0 20px #ff4757, 0 0 40px #ff4757 !important; }
 body.panic-24 .number { color: #ff6b6b !important; text-shadow: 0 0 16px #ff4757 !important; }
+
+/* SETTINGS MODAL */
+#st-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:3000;backdrop-filter:blur(6px);align-items:center;justify-content:center;}
+#st-overlay.open{display:flex;}
+#st-modal{background:var(--panel-bg);border:1px solid rgba(128,128,128,.2);border-radius:16px;width:360px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden;}
+#st-modal-hdr{padding:14px 16px;background:rgba(0,0,0,.25);display:flex;justify-content:space-between;align-items:center;font-size:.8rem;font-weight:900;flex-shrink:0;}
+#st-modal-hdr button{background:none;border:none;color:var(--text);cursor:pointer;font-size:1.1rem;opacity:.6;padding:0;line-height:1;}
+#st-modal-hdr button:hover{opacity:1;}
+#st-body{padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;}
+.st-row{display:flex;flex-direction:column;gap:6px;}
+.st-label{font-size:.65rem;font-weight:900;opacity:.5;letter-spacing:1.5px;text-transform:uppercase;}
+.st-controls{display:flex;align-items:center;gap:10px;}
+.st-controls input[type=range]{flex:1;accent-color:var(--text);height:3px;cursor:pointer;}
+.st-mute{background:none;border:1px solid rgba(128,128,128,.3);color:var(--text);border-radius:6px;padding:3px 9px;font-size:.65rem;font-weight:900;cursor:pointer;white-space:nowrap;font-family:inherit;transition:background .15s,border-color .15s;}
+.st-mute.muted{background:rgba(255,71,87,.15);border-color:#ff4757;color:#ff4757;}
+.st-vol-label{font-size:.65rem;opacity:.4;width:26px;text-align:right;font-weight:700;}
+.st-divider{height:1px;background:rgba(128,128,128,.12);margin:2px 0;}
 </style>
 </head>
 <body data-theme="dark">
@@ -220,6 +237,7 @@ body.panic-24 .number { color: #ff6b6b !important; text-shadow: 0 0 16px #ff4757
 <div id="tl-buttons">
   <button class="tl-btn" onclick="window.toggleGame()" title="void.dash">🎮</button>
   <button class="tl-btn" onclick="window.toggleLB()" title="leaderboard">🏆</button>
+  <button class="tl-btn" onclick="window.toggleSettings()" title="sound settings">⚙️</button>
 </div>
 
 <!-- LEADERBOARD MODAL -->
@@ -230,6 +248,74 @@ body.panic-24 .number { color: #ff6b6b !important; text-shadow: 0 0 16px #ff4757
       <button onclick="window.toggleLB()">&#215;</button>
     </div>
     <div id="lb-list"><div id="lb-empty">no scores yet. play void.dash!</div></div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div id="st-overlay" onclick="if(event.target===this)window.toggleSettings()">
+  <div id="st-modal">
+    <div id="st-modal-hdr">
+      <span>⚙️ sound settings</span>
+      <button onclick="window.toggleSettings()">&#215;</button>
+    </div>
+    <div id="st-body">
+      <div class="st-row">
+        <div class="st-label">clock ticking</div>
+        <div class="st-controls">
+          <input type="range" min="0" max="100" value="18" id="vol-tick" oninput="window.applyVol('tick-sound',this.value,18);document.getElementById('vl-tick').innerText=this.value">
+          <span class="st-vol-label" id="vl-tick">18</span>
+          <button class="st-mute" id="mute-tick" onclick="window.toggleMute('tick-sound','mute-tick')">mute</button>
+        </div>
+      </div>
+      <div class="st-row">
+        <div class="st-label">ambient noise</div>
+        <div class="st-controls">
+          <input type="range" min="0" max="100" value="7" id="vol-amb" oninput="window.applyVol('ambient-sound',this.value,7);document.getElementById('vl-amb').innerText=this.value">
+          <span class="st-vol-label" id="vl-amb">7</span>
+          <button class="st-mute" id="mute-amb" onclick="window.toggleMute('ambient-sound','mute-amb')">mute</button>
+        </div>
+      </div>
+      <div class="st-divider"></div>
+      <div class="st-row">
+        <div class="st-label">24h alarm</div>
+        <div class="st-controls">
+          <input type="range" min="0" max="100" value="50" id="vol-a24" oninput="window.applyVol('alarm-24h',this.value,50);document.getElementById('vl-a24').innerText=this.value">
+          <span class="st-vol-label" id="vl-a24">50</span>
+          <button class="st-mute" id="mute-a24" onclick="window.toggleMute('alarm-24h','mute-a24')">mute</button>
+        </div>
+      </div>
+      <div class="st-row">
+        <div class="st-label">12h alarm</div>
+        <div class="st-controls">
+          <input type="range" min="0" max="100" value="60" id="vol-a12" oninput="window.applyVol('alarm-12h',this.value,60);document.getElementById('vl-a12').innerText=this.value">
+          <span class="st-vol-label" id="vl-a12">60</span>
+          <button class="st-mute" id="mute-a12" onclick="window.toggleMute('alarm-12h','mute-a12')">mute</button>
+        </div>
+      </div>
+      <div class="st-row">
+        <div class="st-label">panic crowd</div>
+        <div class="st-controls">
+          <input type="range" min="0" max="100" value="35" id="vol-ap" oninput="window.applyVol('alarm-panic',this.value,35);document.getElementById('vl-ap').innerText=this.value">
+          <span class="st-vol-label" id="vl-ap">35</span>
+          <button class="st-mute" id="mute-ap" onclick="window.toggleMute('alarm-panic','mute-ap')">mute</button>
+        </div>
+      </div>
+      <div class="st-divider"></div>
+      <div class="st-row">
+        <div class="st-label">clock select sound</div>
+        <div class="st-controls">
+          <input type="range" min="0" max="100" value="50" id="vol-sel" oninput="window.applyVol('select-sound',this.value,50);document.getElementById('vl-sel').innerText=this.value">
+          <span class="st-vol-label" id="vl-sel">50</span>
+          <button class="st-mute" id="mute-sel" onclick="window.toggleMute('select-sound','mute-sel')">mute</button>
+        </div>
+      </div>
+      <div class="st-row">
+        <div class="st-label">master mute all</div>
+        <div class="st-controls">
+          <button class="st-mute" id="mute-all" onclick="window.toggleMuteAll()" style="width:100%;text-align:center;">mute everything</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -399,9 +485,11 @@ window.shiftCarousel=(dir)=>{
   if(next>=0&&next<counterCount){
     activeIdx=next;
     updateCarousel();
-    // play selection sound
     const sel=document.getElementById('select-sound');
     if(sel){ sel.currentTime=0; sel.volume=0.5; sel.play().catch(()=>{}); }
+    // re-evaluate panic + volume for newly viewed clock
+    panicLevel=-1; // force re-check
+    updatePanicMode();
   }
 };
 
@@ -498,6 +586,14 @@ function subscribeCounter(n){
     const el=document.getElementById(`event-name-${n}`);
     if(el) el.innerText=(d.eventName||`event ${n}`).toLowerCase();
     if(n===1){ globalTheme=d.theme||'dark'; applyThemes(); }
+    // pre-populate admin inputs with current values
+    const nameIn=document.getElementById(`name-input-${n}`);
+    const dateIn=document.getElementById(`date-input-${n}`);
+    if(nameIn && d.eventName) nameIn.value=d.eventName;
+    if(dateIn && d.targetTime){
+      // datetime-local format: YYYY-MM-DDTHH:MM (stored as-is from input)
+      dateIn.value=d.targetTime.slice(0,16);
+    }
   });
 }
 
@@ -731,19 +827,30 @@ const alarmTriggered = {}; // { 'n-24': bool, 'n-12': bool }
 let panicLevel = 0; // 0=none, 1=24h flash, 2=12h solid red
 
 function updatePanicMode() {
-  // find the highest panic level across all active counters
+  // only apply effects for the CURRENTLY VIEWED counter
+  const viewedN = activeIdx + 1;
+  const t = targetTimes[viewedN];
   let level = 0;
-  for(let i=1; i<=counterCount; i++){
-    const t = targetTimes[i]; if(!t) continue;
+  if(t){
     const diff = new Date(t) - new Date();
-    if(diff > 0 && diff <= 12*60*60*1000) level = Math.max(level, 2);
-    else if(diff > 0 && diff <= 24*60*60*1000) level = Math.max(level, 1);
+    if(diff > 0 && diff <= 12*60*60*1000) level = 2;
+    else if(diff > 0 && diff <= 24*60*60*1000) level = 1;
   }
   if(level === panicLevel) return;
   panicLevel = level;
   document.body.classList.remove('panic-24','panic-12');
   if(level===1) document.body.classList.add('panic-24');
   if(level===2) document.body.classList.add('panic-12');
+  updateVolumeForPanic(level);
+}
+
+function updateVolumeForPanic(level) {
+  const tick = document.getElementById('tick-sound');
+  const amb  = document.getElementById('ambient-sound');
+  if(!tick || !amb) return;
+  if(level===2){      tick.volume=0.55; amb.volume=0.22; }
+  else if(level===1){ tick.volume=0.35; amb.volume=0.14; }
+  else{               tick.volume=0.18; amb.volume=0.07; }
 }
 
 function triggerAlarm(level) {
@@ -771,15 +878,16 @@ function calcCountdown(n,t){
     return;
   }
 
-  // alarm triggers (once per counter per threshold)
+  // alarm triggers only when this counter is the one being viewed
   const h24=24*60*60*1000, h12=12*60*60*1000;
   const key24=`${n}-24`, key12=`${n}-12`;
+  const isViewed = (n === activeIdx+1);
   if(diff<=h12 && !alarmTriggered[key12]){
     alarmTriggered[key12]=true; alarmTriggered[key24]=true;
-    triggerAlarm(2);
+    if(isViewed) triggerAlarm(2);
   } else if(diff<=h24 && !alarmTriggered[key24]){
     alarmTriggered[key24]=true;
-    triggerAlarm(1);
+    if(isViewed) triggerAlarm(1);
   }
 
   let m=(target.getFullYear()-now.getFullYear())*12+(target.getMonth()-now.getMonth());
@@ -1419,6 +1527,7 @@ window.addEventListener('resize',()=>{
       s.play().then(()=>{s.pause();s.currentTime=0;}).catch(()=>{});
     });
     audioUnlocked=true;
+    initSoundSettings();
     const loader=document.getElementById('loader');
     loader.classList.add('fade');
     setTimeout(()=>loader.remove(),900);
@@ -1444,6 +1553,91 @@ window.deleteCounter=async(n)=>{
   const newCount=Math.max(1,counterCount-1);
   await setDoc(doc(db,'config','timers_meta'),{count:newCount});
   showStatus(`counter ${n} removed.`);
+};
+
+
+// ── SOUND SETTINGS ──
+// base volumes (used by panic mode scaling)
+const baseVols = {
+  'tick-sound': 0.18, 'ambient-sound': 0.07,
+  'alarm-24h': 0.5,   'alarm-12h': 0.6,
+  'alarm-panic': 0.35, 'select-sound': 0.5
+};
+const mutedSounds = new Set(JSON.parse(localStorage.getItem('snd-muted')||'[]'));
+let masterMuted = localStorage.getItem('snd-master')==='1';
+
+function initSoundSettings() {
+  // restore from localStorage
+  const sounds = ['tick','amb','a24','a12','ap','sel'];
+  const ids = ['tick-sound','ambient-sound','alarm-24h','alarm-12h','alarm-panic','select-sound'];
+  sounds.forEach((k,i)=>{
+    const saved = localStorage.getItem(`vol-${k}`);
+    if(saved){
+      const el = document.getElementById(`vol-${k}`);
+      const lbl = document.getElementById(`vl-${k}`);
+      if(el){ el.value=saved; if(lbl) lbl.innerText=saved; }
+      baseVols[ids[i]] = parseInt(saved)/100;
+    }
+    if(mutedSounds.has(ids[i])){
+      const btn=document.getElementById(`mute-${k}`);
+      if(btn) btn.classList.add('muted');
+    }
+  });
+  if(masterMuted){
+    const btn=document.getElementById('mute-all');
+    if(btn){ btn.innerText='unmute everything'; btn.classList.add('muted'); }
+  }
+  applySoundState();
+}
+
+function applySoundState() {
+  Object.entries(baseVols).forEach(([id, vol])=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.volume = (masterMuted || mutedSounds.has(id)) ? 0 : vol;
+  });
+}
+
+window.applyVol = (id, val, def) => {
+  const frac = parseInt(val)/100;
+  baseVols[id] = frac;
+  const el = document.getElementById(id); if(el && !mutedSounds.has(id) && !masterMuted) el.volume=frac;
+  // save to localStorage using slider id mapping
+  const keyMap = {'tick-sound':'tick','ambient-sound':'amb','alarm-24h':'a24','alarm-12h':'a12','alarm-panic':'ap','select-sound':'sel'};
+  if(keyMap[id]) localStorage.setItem(`vol-${keyMap[id]}`, val);
+};
+
+window.toggleMute = (id, btnId) => {
+  const btn = document.getElementById(btnId);
+  if(mutedSounds.has(id)){ mutedSounds.delete(id); btn?.classList.remove('muted'); }
+  else { mutedSounds.add(id); btn?.classList.add('muted'); }
+  localStorage.setItem('snd-muted', JSON.stringify([...mutedSounds]));
+  applySoundState();
+};
+
+window.toggleMuteAll = () => {
+  masterMuted = !masterMuted;
+  localStorage.setItem('snd-master', masterMuted?'1':'0');
+  const btn=document.getElementById('mute-all');
+  if(btn){ btn.innerText=masterMuted?'unmute everything':'mute everything'; btn.classList.toggle('muted',masterMuted); }
+  applySoundState();
+};
+
+window.toggleSettings = () => {
+  document.getElementById('st-overlay').classList.toggle('open');
+};
+
+// override updateVolumeForPanic to respect user settings
+const _origUpdateVol = updateVolumeForPanic;
+updateVolumeForPanic = (level) => {
+  const tick=document.getElementById('tick-sound'), amb=document.getElementById('ambient-sound');
+  if(!tick||!amb) return;
+  // calculate panic-scaled base vol then apply mute state
+  let tv,av;
+  if(level===2){      tv=baseVols['tick-sound']*3.0; av=baseVols['ambient-sound']*3.0; }
+  else if(level===1){ tv=baseVols['tick-sound']*1.9; av=baseVols['ambient-sound']*1.9; }
+  else{               tv=baseVols['tick-sound'];      av=baseVols['ambient-sound'];     }
+  tick.volume=(masterMuted||mutedSounds.has('tick-sound'))?0:Math.min(1,tv);
+  amb.volume =(masterMuted||mutedSounds.has('ambient-sound'))?0:Math.min(1,av);
 };
 
 // ── LIVE IMAGES ──
