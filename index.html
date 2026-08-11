@@ -143,6 +143,16 @@ input{width:100%;padding:8px;margin:5px 0;border:1px solid rgba(128,128,128,.3);
 .txt-del-btn{position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;background:#ff4757;color:#fff;border:none;cursor:pointer;font-size:.8rem;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;z-index:5;line-height:1;padding:0;}
 .txt-admin-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(128,128,128,.1);font-size:.65rem;font-weight:700;gap:6px;}
 .txt-admin-row button{background:#ff4757;color:#fff;border:none;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:.6rem;flex-shrink:0;}
+
+/* PANIC MODE */
+@keyframes panicFlash {
+  0%,100% { background-color: var(--bg); }
+  50%      { background-color: #3a0000; }
+}
+body.panic-24 { animation: panicFlash 1.2s ease-in-out infinite; }
+body.panic-12 { background-color: #1a0000 !important; animation: none; }
+body.panic-12 .number { color: #ff4757 !important; text-shadow: 0 0 20px #ff4757, 0 0 40px #ff4757 !important; }
+body.panic-24 .number { color: #ff6b6b !important; text-shadow: 0 0 16px #ff4757 !important; }
 </style>
 </head>
 <body data-theme="dark">
@@ -173,6 +183,15 @@ input{width:100%;padding:8px;margin:5px 0;border:1px solid rgba(128,128,128,.3);
 </audio>
 <audio id="scream-sound" preload="auto">
   <source src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/Screen%20recording%202026-01-13%204.07.40%20PM.mp3?raw=true" type="audio/mpeg">
+</audio>
+<audio id="alarm-24h" loop preload="auto">
+  <source src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/8footdino_on_scratch-alarm-301729.mp3?raw=true" type="audio/mpeg">
+</audio>
+<audio id="alarm-12h" loop preload="auto">
+  <source src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/YTDown.com_YouTube_Alarm-sound-effects-modern-alarm-1_Media_GWXLPu8Ky9k_007_128k.mp3?raw=true" type="audio/mpeg">
+</audio>
+<audio id="alarm-panic" loop preload="auto">
+  <source src="https://github.com/corrodedfridge-tech/timer-for-school/blob/main/time-traveling-city-crowd-panic-scream-1-390796.mp3?raw=true" type="audio/mpeg">
 </audio>
 
 <div id="notif-banner" onclick="window.requestNotifPermission()">🔔 enable web notifications to get visitor alerts</div>
@@ -707,6 +726,42 @@ document.onmousemove=e=>{ if(!drag.on) return; adminPanel.style.left=(e.clientX-
 document.onmouseup=()=>{ drag.on=false; };
 
 // ── COUNTDOWN ENGINE ──
+// alarm state tracking
+const alarmTriggered = {}; // { 'n-24': bool, 'n-12': bool }
+let panicLevel = 0; // 0=none, 1=24h flash, 2=12h solid red
+
+function updatePanicMode() {
+  // find the highest panic level across all active counters
+  let level = 0;
+  for(let i=1; i<=counterCount; i++){
+    const t = targetTimes[i]; if(!t) continue;
+    const diff = new Date(t) - new Date();
+    if(diff > 0 && diff <= 12*60*60*1000) level = Math.max(level, 2);
+    else if(diff > 0 && diff <= 24*60*60*1000) level = Math.max(level, 1);
+  }
+  if(level === panicLevel) return;
+  panicLevel = level;
+  document.body.classList.remove('panic-24','panic-12');
+  if(level===1) document.body.classList.add('panic-24');
+  if(level===2) document.body.classList.add('panic-12');
+}
+
+function triggerAlarm(level) {
+  // stop previous alarms
+  ['alarm-24h','alarm-12h','alarm-panic'].forEach(id=>{
+    const el=document.getElementById(id); if(el){el.pause();el.currentTime=0;}
+  });
+  if(level===1){
+    const a=document.getElementById('alarm-24h');
+    if(a){a.volume=0.5;a.play().catch(()=>{});}
+  } else if(level===2){
+    const a12=document.getElementById('alarm-12h');
+    const ap=document.getElementById('alarm-panic');
+    if(a12){a12.volume=0.6;a12.play().catch(()=>{});}
+    if(ap){ap.volume=0.35;ap.play().catch(()=>{});}
+  }
+}
+
 function calcCountdown(n,t){
   if(!t) return;
   const now=new Date(), target=new Date(t), diff=target-now;
@@ -715,6 +770,18 @@ function calcCountdown(n,t){
     ['months','days','hours','minutes','seconds'].forEach(id=>{ const e=document.getElementById(`${id}-${n}`); if(e) e.innerText='00'; });
     return;
   }
+
+  // alarm triggers (once per counter per threshold)
+  const h24=24*60*60*1000, h12=12*60*60*1000;
+  const key24=`${n}-24`, key12=`${n}-12`;
+  if(diff<=h12 && !alarmTriggered[key12]){
+    alarmTriggered[key12]=true; alarmTriggered[key24]=true;
+    triggerAlarm(2);
+  } else if(diff<=h24 && !alarmTriggered[key24]){
+    alarmTriggered[key24]=true;
+    triggerAlarm(1);
+  }
+
   let m=(target.getFullYear()-now.getFullYear())*12+(target.getMonth()-now.getMonth());
   let tmp=new Date(now); tmp.setMonth(now.getMonth()+m);
   if(tmp>target){m--;tmp=new Date(now);tmp.setMonth(now.getMonth()+m);}
@@ -728,7 +795,10 @@ function calcCountdown(n,t){
   document.getElementById(`minutes-${n}`).innerText=mm.toString().padStart(2,'0');
   document.getElementById(`seconds-${n}`).innerText=ss.toString().padStart(2,'0');
 }
-setInterval(()=>{ for(let i=1;i<=counterCount;i++) calcCountdown(i,targetTimes[i]); },1000);
+setInterval(()=>{
+  for(let i=1;i<=counterCount;i++) calcCountdown(i,targetTimes[i]);
+  updatePanicMode();
+},1000);
 
 // ── MINI GAME: VOID.DASH ──
 const gCvs = document.getElementById('game-canvas');
